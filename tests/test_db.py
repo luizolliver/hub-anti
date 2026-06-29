@@ -2,7 +2,7 @@
 
 import sqlite3
 
-from src.db import get_connection, init_db
+from src.db import init_db
 
 
 def test_init_db_cria_arquivo(tmp_path):

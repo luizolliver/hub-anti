@@ -52,7 +52,13 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 (0 a 11). Cada etapa só "fecha" quando os testes passam.
 
 - [x] **Etapa 0** — Fundação (estrutura, config, banco, pytest)
-- [ ] Etapa 1 — Coletor PNCP
+- [x] **Etapa 1** — Coletor PNCP (search API; enriquecimento de fornecedor via consulta API)
+
+> **Nota de arquitetura — fornecedor:** a fonte **primária** do CNPJ do fornecedor é o
+> **TCE-SP** (Etapa 2). O enriquecimento via PNCP (`enriquecer_fornecedor`) é apenas
+> bônus para quando a consulta API voltar — não é o caminho principal. Contratos do
+> PNCP podem ficar com fornecedor nulo até o cruzamento com o TCE.
+
 - [ ] Etapa 2 — Coletores TCE-SP (despesas + licitações)
 - [ ] Etapa 3 — Resolução de entidades
 - [ ] Etapa 4 — Enriquecimento societário (CNPJ/QSA)

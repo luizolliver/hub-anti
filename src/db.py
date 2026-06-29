@@ -31,22 +31,29 @@ CREATE TABLE IF NOT EXISTS contratos (
     fonte           TEXT NOT NULL,
     -- Identificador original do contrato na fonte (antes da reconciliação).
     id_origem       TEXT,
-    -- Órgão público contratante.
+    -- Órgão público contratante (nome).
     orgao           TEXT,
+    -- CNPJ do órgão contratante (apenas dígitos).
+    orgao_cnpj      TEXT,
     -- Objeto/descrição do contrato.
     objeto          TEXT,
     -- Modalidade da licitação (pregão, dispensa, inexigibilidade...).
     modalidade      TEXT,
-    -- CNPJ do fornecedor (apenas dígitos).
+    -- CNPJ do fornecedor (apenas dígitos). Pode ser nulo até o enriquecimento.
     fornecedor_cnpj TEXT,
     -- Razão social / nome do fornecedor.
     fornecedor_nome TEXT,
     -- Valor do contrato em reais.
     valor           REAL,
-    -- Data de assinatura/publicação no formato ISO (AAAA-MM-DD).
+    -- Data de assinatura no formato ISO (AAAA-MM-DD).
     data            TEXT,
+    -- Ano do contrato.
+    ano             TEXT,
     -- Código IBGE do município (filtro de Barretos).
     municipio_ibge  TEXT,
+    -- Nome do município e UF (conferência).
+    municipio_nome  TEXT,
+    uf              TEXT,
     -- JSON bruto da fonte, para auditoria e reprocessamento.
     raw             TEXT,
     -- Carimbo de quando a linha foi inserida.
@@ -78,14 +85,33 @@ def get_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
+# Colunas que devem existir em `contratos` (para migração de bancos antigos).
+_COLUNAS_CONTRATOS = {
+    "id", "fonte", "id_origem", "orgao", "orgao_cnpj", "objeto", "modalidade",
+    "fornecedor_cnpj", "fornecedor_nome", "valor", "data", "ano",
+    "municipio_ibge", "municipio_nome", "uf", "raw", "coletado_em",
+}
+
+
+def _migrar(conn: sqlite3.Connection) -> None:
+    """Adiciona colunas que faltam em bancos criados por versões anteriores."""
+    existentes = {row["name"] for row in conn.execute("PRAGMA table_info(contratos);")}
+    for col in _COLUNAS_CONTRATOS - existentes:
+        # Todas as colunas extras são TEXT/REAL e aceitam NULL.
+        tipo = "REAL" if col == "valor" else "TEXT"
+        conn.execute(f"ALTER TABLE contratos ADD COLUMN {col} {tipo};")
+
+
 def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     """
     Cria o schema do banco (se ainda não existir) e devolve a conexão aberta.
 
-    É seguro chamar repetidamente: todos os CREATEs usam IF NOT EXISTS.
+    É seguro chamar repetidamente: todos os CREATEs usam IF NOT EXISTS e, em
+    bancos antigos, as colunas que faltam são adicionadas via migração leve.
     """
     conn = get_connection(db_path)
     conn.executescript(SCHEMA_SQL)
+    _migrar(conn)
     conn.commit()
     return conn
 

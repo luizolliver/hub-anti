@@ -37,12 +37,30 @@ CODIGO_TCE_MUNICIPIO = "BARRETOS"
 # Unidade da Federação.
 UF = "SP"
 
+# ID interno do município de Barretos no índice de busca do PNCP
+# (a search API filtra por este id, NÃO pelo código IBGE). Confirmado em jun/2026.
+PNCP_MUNICIPIO_ID = "3330"
+
+
+# ---------------------------------------------------------------------------
+# Endpoints do PNCP
+# ---------------------------------------------------------------------------
+# Search API (backend do site pncp.gov.br) — rápida, filtra por municipio_id,
+# traz a maioria dos campos do contrato (valor, modalidade, objeto, órgão, datas)
+# mas NÃO o fornecedor vencedor. Usada como fonte primária de descoberta.
+PNCP_SEARCH_URL = "https://pncp.gov.br/api/search/"
+
+# Consulta API oficial (Lei 14.133) — traz o detalhe completo, incluindo o
+# fornecedor (niFornecedor/nomeRazaoSocialFornecedor). Usada para enriquecer
+# cada contrato. Atenção: este serviço sofre indisponibilidades (HTTP 504).
+PNCP_CONSULTA_URL = "https://pncp.gov.br/api/consulta"
+
 
 # ---------------------------------------------------------------------------
 # CNPJs dos órgãos públicos locais (placeholders — confirmar)
 # ---------------------------------------------------------------------------
-# PLACEHOLDER — preencher com o CNPJ real da Prefeitura de Barretos.
-CNPJ_PREFEITURA = "00000000000000"
+# CNPJ da Prefeitura de Barretos ("MUNICIPIO DE BARRETOS") — confirmado via PNCP.
+CNPJ_PREFEITURA = "44780609000104"
 
 # PLACEHOLDER — preencher com o CNPJ real da Câmara Municipal de Barretos.
 CNPJ_CAMARA = "00000000000000"
