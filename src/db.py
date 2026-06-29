@@ -99,6 +99,42 @@ CREATE TABLE IF NOT EXISTS fornecedores (
     atualizado_em    TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS empresas (
+    cnpj                    TEXT PRIMARY KEY,
+    cnpj_raiz               TEXT,
+    razao_social            TEXT,
+    nome_fantasia           TEXT,
+    situacao_cadastral      TEXT,        -- ATIVA / BAIXADA / ...
+    data_situacao_cadastral TEXT,
+    situacao_especial       TEXT,        -- ex.: INTERVENCAO
+    -- Data de abertura: base para "idade da empresa na data do contrato".
+    data_inicio_atividade   TEXT,
+    natureza_juridica       TEXT,
+    porte                   TEXT,
+    capital_social          REAL,
+    cnae                    TEXT,
+    cnae_descricao          TEXT,
+    municipio               TEXT,
+    uf                      TEXT,
+    matriz_filial           TEXT,        -- MATRIZ / FILIAL
+    raw                     TEXT,
+    atualizado_em           TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS socios (
+    id                TEXT PRIMARY KEY,   -- hash sintético
+    cnpj_empresa      TEXT NOT NULL,
+    nome_socio        TEXT,
+    nome_socio_chave  TEXT,               -- normalizar_nome, p/ casamento por nome
+    documento_socio   TEXT,               -- CPF vem MASCARADO pela RFB
+    cnpj_socio        TEXT,               -- quando o sócio é PJ (CNPJ válido)
+    tipo_socio        TEXT,               -- PF / PJ / OUTRO
+    qualificacao      TEXT,
+    data_entrada      TEXT,
+    faixa_etaria      TEXT,
+    raw               TEXT
+);
+
 """
 
 
@@ -111,6 +147,10 @@ CREATE INDEX IF NOT EXISTS idx_despesas_forn ON despesas (fornecedor_documento);
 CREATE INDEX IF NOT EXISTS idx_despesas_evento ON despesas (evento);
 CREATE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores (nome_chave);
 CREATE INDEX IF NOT EXISTS idx_fornecedores_raiz ON fornecedores (cnpj_raiz);
+CREATE INDEX IF NOT EXISTS idx_empresas_raiz ON empresas (cnpj_raiz);
+CREATE INDEX IF NOT EXISTS idx_socios_empresa ON socios (cnpj_empresa);
+CREATE INDEX IF NOT EXISTS idx_socios_nome ON socios (nome_socio_chave);
+CREATE INDEX IF NOT EXISTS idx_socios_cnpj ON socios (cnpj_socio);
 """
 
 

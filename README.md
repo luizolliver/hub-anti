@@ -69,7 +69,7 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 > despesa ≠ contrato (juntar exigiria casar por empenho). O CNPJ é guardado em
 > raiz (8 díg., agrupa matriz+filiais) e completo (14). CPF do TCE vem mascarado
 > → pessoa física resolve por **nome (fuzzy)**, pista fraca, nunca chave.
-- [ ] Etapa 4 — Enriquecimento societário (CNPJ/QSA)
+- [x] **Etapa 4** — Enriquecimento societário (CNPJ/QSA via BrasilAPI; `empresas` + `socios`, cache)
 - [ ] Etapa 5 — Sanções (CEIS/CNEP + apenados TCE)
 - [ ] Etapa 6 — Motor de bandeiras vermelhas
 - [ ] Etapa 7 — Rede societária

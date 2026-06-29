@@ -14,6 +14,8 @@ import re
 
 from pydantic import BaseModel, Field
 
+from src.normalize.entidades import normalizar_cnpj, normalizar_nome
+
 
 def _so_digitos(valor: str | None) -> str | None:
     """Mantém apenas os dígitos de um documento (CNPJ/CPF). None se vazio."""
@@ -207,4 +209,101 @@ class Despesa(BaseModel):
             ano=(data_iso[:4] if data_iso else None),
             valor=valor,
             raw=row,
+        )
+
+
+class Empresa(BaseModel):
+    """Cadastro de uma empresa (Receita Federal via BrasilAPI) — Etapa 4."""
+
+    cnpj: str
+    cnpj_raiz: str | None = None
+    razao_social: str | None = None
+    nome_fantasia: str | None = None
+    situacao_cadastral: str | None = None  # descrição: ATIVA / BAIXADA / ...
+    data_situacao_cadastral: str | None = None
+    situacao_especial: str | None = None  # ex.: INTERVENCAO
+    data_inicio_atividade: str | None = None  # KEY: idade da empresa (Etapa 5/6)
+    natureza_juridica: str | None = None
+    porte: str | None = None
+    capital_social: float | None = None
+    cnae: str | None = None
+    cnae_descricao: str | None = None
+    municipio: str | None = None
+    uf: str | None = None
+    matriz_filial: str | None = None  # MATRIZ / FILIAL
+    raw: dict = Field(default_factory=dict)
+
+    def para_linha_db(self) -> dict:
+        d = self.model_dump(exclude={"raw"})
+        d["raw"] = json.dumps(self.raw, ensure_ascii=False)
+        return d
+
+    @classmethod
+    def from_brasilapi(cls, p: dict) -> "Empresa":
+        cnpj = _so_digitos(p.get("cnpj")) or ""
+        return cls(
+            cnpj=cnpj,
+            cnpj_raiz=(cnpj[:8] if len(cnpj) == 14 else None),
+            razao_social=p.get("razao_social"),
+            nome_fantasia=p.get("nome_fantasia"),
+            situacao_cadastral=p.get("descricao_situacao_cadastral"),
+            data_situacao_cadastral=p.get("data_situacao_cadastral"),
+            situacao_especial=p.get("situacao_especial") or None,
+            data_inicio_atividade=p.get("data_inicio_atividade"),
+            natureza_juridica=p.get("natureza_juridica"),
+            porte=p.get("porte"),
+            capital_social=p.get("capital_social"),
+            cnae=str(p["cnae_fiscal"]) if p.get("cnae_fiscal") is not None else None,
+            cnae_descricao=p.get("cnae_fiscal_descricao"),
+            municipio=p.get("municipio"),
+            uf=p.get("uf"),
+            matriz_filial=p.get("descricao_identificador_matriz_filial"),
+            raw=p,
+        )
+
+
+class Socio(BaseModel):
+    """Um sócio do quadro societário (QSA) de uma empresa — Etapa 4."""
+
+    id: str  # hash sintético (deduplicação)
+    cnpj_empresa: str
+    nome_socio: str | None = None
+    nome_socio_chave: str | None = None  # normalizar_nome — casamento por nome
+    documento_socio: str | None = None  # como veio (CPF vem MASCARADO pela RFB)
+    cnpj_socio: str | None = None  # quando o sócio é PJ e o CNPJ é válido
+    tipo_socio: str | None = None  # PF / PJ / OUTRO
+    qualificacao: str | None = None
+    data_entrada: str | None = None
+    faixa_etaria: str | None = None
+    raw: dict = Field(default_factory=dict)
+
+    def para_linha_db(self) -> dict:
+        d = self.model_dump(exclude={"raw"})
+        d["raw"] = json.dumps(self.raw, ensure_ascii=False)
+        return d
+
+    @classmethod
+    def from_qsa(cls, s: dict, cnpj_empresa: str) -> "Socio":
+        # identificador_de_socio: 1=Pessoa Jurídica, 2=Pessoa Física, 3=Estrangeiro.
+        ident = s.get("identificador_de_socio")
+        tipo = {1: "PJ", 2: "PF", 3: "OUTRO"}.get(ident, "OUTRO")
+        doc = s.get("cnpj_cpf_do_socio")
+        cnpj_socio = normalizar_cnpj(doc) if tipo == "PJ" else None
+        nome = s.get("nome_socio")
+        chave = "|".join(
+            str(x) for x in (cnpj_empresa, nome, doc, s.get("qualificacao_socio"),
+                             s.get("data_entrada_sociedade"))
+        )
+        return cls(
+            id=hashlib.sha1(chave.encode("utf-8")).hexdigest(),
+            cnpj_empresa=cnpj_empresa,
+            nome_socio=nome,
+            nome_socio_chave=normalizar_nome(nome),
+            documento_socio=doc,
+            cnpj_socio=cnpj_socio,
+            tipo_socio=tipo,
+            qualificacao=s.get("qualificacao_socio"),
+            data_entrada=s.get("data_entrada_sociedade"),
+            faixa_etaria=s.get("faixa_etaria"),
+            raw=s,
         )
