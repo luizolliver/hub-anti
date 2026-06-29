@@ -60,9 +60,6 @@ CREATE TABLE IF NOT EXISTS contratos (
     coletado_em     TEXT DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_contratos_cnpj ON contratos (fornecedor_cnpj);
-CREATE INDEX IF NOT EXISTS idx_contratos_fonte ON contratos (fonte);
-
 CREATE TABLE IF NOT EXISTS despesas (
     -- Identificador sintético (hash do conteúdo da linha) p/ deduplicação.
     id                    TEXT PRIMARY KEY,
@@ -87,12 +84,11 @@ CREATE TABLE IF NOT EXISTS despesas (
     coletado_em           TEXT DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_despesas_forn ON despesas (fornecedor_documento);
-CREATE INDEX IF NOT EXISTS idx_despesas_evento ON despesas (evento);
-
 CREATE TABLE IF NOT EXISTS fornecedores (
-    -- CNPJ normalizado e validado (14 dígitos) — chave única.
+    -- CNPJ normalizado e validado (14 dígitos) — chave única (estabelecimento).
     cnpj             TEXT PRIMARY KEY,
+    -- Raiz do CNPJ (8 dígitos): agrupa matriz + filiais (a mesma empresa).
+    cnpj_raiz        TEXT,
     nome             TEXT,            -- nome canônico escolhido
     nome_chave       TEXT,            -- normalizar_nome(nome), p/ casamento
     n_contratos      INTEGER DEFAULT 0,   -- referências em contratos (PNCP)
@@ -103,7 +99,18 @@ CREATE TABLE IF NOT EXISTS fornecedores (
     atualizado_em    TEXT DEFAULT (datetime('now'))
 );
 
+"""
+
+
+# Índices criados DEPOIS da migração de colunas (podem referenciar colunas que
+# só passam a existir após o ALTER TABLE de bancos antigos).
+INDEXES_SQL = """
+CREATE INDEX IF NOT EXISTS idx_contratos_cnpj ON contratos (fornecedor_cnpj);
+CREATE INDEX IF NOT EXISTS idx_contratos_fonte ON contratos (fonte);
+CREATE INDEX IF NOT EXISTS idx_despesas_forn ON despesas (fornecedor_documento);
+CREATE INDEX IF NOT EXISTS idx_despesas_evento ON despesas (evento);
 CREATE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores (nome_chave);
+CREATE INDEX IF NOT EXISTS idx_fornecedores_raiz ON fornecedores (cnpj_raiz);
 """
 
 
@@ -127,21 +134,29 @@ def get_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
-# Colunas que devem existir em `contratos` (para migração de bancos antigos).
-_COLUNAS_CONTRATOS = {
-    "id", "fonte", "id_origem", "orgao", "orgao_cnpj", "objeto", "modalidade",
-    "fornecedor_cnpj", "fornecedor_nome", "valor", "data", "ano",
-    "municipio_ibge", "municipio_nome", "uf", "raw", "coletado_em",
+# Colunas esperadas por tabela (para migrar bancos criados por versões antigas).
+# Mapeia tabela -> {coluna: tipo}. Só colunas que podem faltar em bancos velhos.
+_COLUNAS_ESPERADAS = {
+    "contratos": {
+        "id": "TEXT", "fonte": "TEXT", "id_origem": "TEXT", "orgao": "TEXT",
+        "orgao_cnpj": "TEXT", "objeto": "TEXT", "modalidade": "TEXT",
+        "fornecedor_cnpj": "TEXT", "fornecedor_nome": "TEXT", "valor": "REAL",
+        "data": "TEXT", "ano": "TEXT", "municipio_ibge": "TEXT",
+        "municipio_nome": "TEXT", "uf": "TEXT", "raw": "TEXT", "coletado_em": "TEXT",
+    },
+    "fornecedores": {"cnpj_raiz": "TEXT"},
 }
 
 
 def _migrar(conn: sqlite3.Connection) -> None:
     """Adiciona colunas que faltam em bancos criados por versões anteriores."""
-    existentes = {row["name"] for row in conn.execute("PRAGMA table_info(contratos);")}
-    for col in _COLUNAS_CONTRATOS - existentes:
-        # Todas as colunas extras são TEXT/REAL e aceitam NULL.
-        tipo = "REAL" if col == "valor" else "TEXT"
-        conn.execute(f"ALTER TABLE contratos ADD COLUMN {col} {tipo};")
+    for tabela, colunas in _COLUNAS_ESPERADAS.items():
+        existentes = {row["name"] for row in conn.execute(f"PRAGMA table_info({tabela});")}
+        if not existentes:
+            continue  # tabela ainda não existe; o CREATE já cuidou do schema novo
+        for col, tipo in colunas.items():
+            if col not in existentes:
+                conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {col} {tipo};")
 
 
 def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
@@ -152,8 +167,9 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
     bancos antigos, as colunas que faltam são adicionadas via migração leve.
     """
     conn = get_connection(db_path)
-    conn.executescript(SCHEMA_SQL)
-    _migrar(conn)
+    conn.executescript(SCHEMA_SQL)  # cria tabelas (IF NOT EXISTS)
+    _migrar(conn)                   # adiciona colunas que faltam em bancos antigos
+    conn.executescript(INDEXES_SQL)  # índices, já com as colunas garantidas
     conn.commit()
     return conn
 

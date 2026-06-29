@@ -3,12 +3,34 @@ Resolução de entidades — Etapa 3 (o "cérebro silencioso").
 
 Sem chaves boas, nenhum cruzamento das etapas seguintes funciona. Aqui ficam:
   - normalização e validação de CNPJ e CPF (com dígitos verificadores);
+  - raiz do CNPJ (8 díg., agrupa matriz+filiais) vs. completo (14, estabelecimento);
   - normalização de nomes (maiúsculas, sem acento) para casamento aproximado;
-  - reconciliação de um mesmo contrato vindo de fontes diferentes (PNCP/TCE);
+  - reconciliação de um mesmo contrato vindo de fontes diferentes;
   - construção da tabela `fornecedores` única, por CNPJ.
 
 Tudo aqui é função pura e testável offline, exceto `construir_fornecedores`,
 que lê/escreve no banco.
+
+Duas premissas de design importantes (baratas agora, dolorosas depois):
+
+  * **CNPJ em duas formas.** Guardamos a **raiz** (8 dígitos) e o **completo**
+    (14). A raiz agrupa todos os estabelecimentos da mesma empresa (matriz +
+    filiais); o completo identifica o estabelecimento. A análise de rede
+    (Etapa 7) precisa da raiz para reconhecer "a mesma empresa".
+
+  * **Pessoa física resolve por NOME, não por CPF.** O TCE-SP mascara o CPF
+    (mostra ~6 dígitos), então CPF vindo do TCE NÃO é chave confiável. Para
+    pessoas, o casamento é por `normalizar_nome` (fuzzy) e vale como **pista
+    fraca**, sujeita a homônimos — nunca como prova. Isso reaparece na Etapa 8
+    (doações).
+
+  * **Escopo atual da reconciliação.** `reconciliar_contratos` mescla
+    contrato↔contrato entre fontes. Hoje o lado-TCE de *contratos* ainda não
+    existe (isso é a Etapa 2B); temos apenas *despesas* (pagamentos), que NÃO
+    são contratos e não fecham um join limpo contrato↔fornecedor (exigiria
+    casar por empenho). Por isso a tabela `fornecedores` é construída sobretudo
+    a partir das **despesas do TCE** (que já trazem CNPJ). O vínculo completo
+    contrato-PNCP↔fornecedor fica para a 2B (ou o enriquecimento do PNCP).
 """
 
 from __future__ import annotations
@@ -66,6 +88,17 @@ def normalizar_cpf(cpf: str | None) -> str | None:
     return c if cpf_valido(c) else None
 
 
+def cnpj_raiz(cnpj: str | None) -> str | None:
+    """
+    Raiz do CNPJ = primeiros 8 dígitos (a empresa "mãe"). Agrupa matriz e
+    filiais, que compartilham a raiz e diferem só no sufixo (0001, 0002...).
+    Devolve None se o CNPJ não for válido. Use para agrupar a mesma empresa;
+    use o CNPJ completo (14) para o estabelecimento específico.
+    """
+    c = normalizar_cnpj(cnpj)
+    return c[:8] if c else None
+
+
 # ---------------------------------------------------------------------------
 # Nomes: chave para casamento aproximado
 # ---------------------------------------------------------------------------
@@ -111,7 +144,14 @@ def chave_reconciliacao(contrato) -> tuple:
 
 def reconciliar_contratos(contratos: list) -> list:
     """
-    Mescla contratos que aparecem em mais de uma fonte num registro canônico.
+    Mescla CONTRATOS que aparecem em mais de uma fonte num registro canônico.
+
+    ATENÇÃO ao escopo: isto é contrato↔contrato (ex.: o mesmo contrato no PNCP e
+    no cubo de Contratos do TCE — Etapa 2B). NÃO serve para ligar um contrato do
+    PNCP a uma *despesa* do TCE: despesa é pagamento, não contrato, e o vínculo
+    exigiria casar por empenho/heurística (furado). Enquanto a 2B não existe,
+    esta função opera só sobre os contratos do PNCP (que podem ter fornecedor
+    nulo) — ou seja, não há, hoje, "contrato reconciliado com fornecedor".
 
     Para cada grupo (mesma `chave_reconciliacao`), mantém o primeiro contrato,
     preenche campos vazios com o que a outra fonte tiver e registra todas as
@@ -215,11 +255,12 @@ def construir_fornecedores(conn: sqlite3.Connection) -> int:
     conn.executemany(
         """
         INSERT INTO fornecedores
-            (cnpj, nome, nome_chave, n_contratos, n_despesas,
+            (cnpj, cnpj_raiz, nome, nome_chave, n_contratos, n_despesas,
              valor_contratos, valor_pago, fontes)
-        VALUES (:cnpj, :nome, :nome_chave, :n_contratos, :n_despesas,
+        VALUES (:cnpj, :cnpj_raiz, :nome, :nome_chave, :n_contratos, :n_despesas,
                 :valor_contratos, :valor_pago, :fontes)
         ON CONFLICT(cnpj) DO UPDATE SET
+            cnpj_raiz=excluded.cnpj_raiz,
             nome=excluded.nome, nome_chave=excluded.nome_chave,
             n_contratos=excluded.n_contratos, n_despesas=excluded.n_despesas,
             valor_contratos=excluded.valor_contratos, valor_pago=excluded.valor_pago,
@@ -228,6 +269,7 @@ def construir_fornecedores(conn: sqlite3.Connection) -> int:
         [
             {
                 "cnpj": cnpj,
+                "cnpj_raiz": cnpj[:8],
                 "nome": (nome := _escolher_nome(s["nomes"])),
                 "nome_chave": normalizar_nome(nome),
                 "n_contratos": s["n_contratos"],

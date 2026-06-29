@@ -10,6 +10,7 @@ from src.collectors.tce_despesas import salvar_despesas
 from src.db import init_db
 from src.models import Contrato, Despesa
 from src.normalize.entidades import (
+    cnpj_raiz,
     cnpj_valido,
     construir_fornecedores,
     cpf_valido,
@@ -48,6 +49,13 @@ def test_normalizar_cnpj():
     assert normalizar_cnpj("2558157000162") == "02558157000162"
     # Inválido → None.
     assert normalizar_cnpj("44780609000105") is None
+
+
+def test_cnpj_raiz():
+    # Raiz = 8 primeiros dígitos; agrupa matriz + filiais.
+    assert cnpj_raiz("44.780.609/0001-04") == "44780609"
+    # CNPJ inválido → sem raiz.
+    assert cnpj_raiz("44780609000105") is None
 
 
 # --- CPF ---------------------------------------------------------------------
@@ -130,4 +138,5 @@ def test_construir_fornecedores(tmp_path):
     assert pio["valor_pago"] == 1000.0
     assert pio["fontes"] == "PNCP,TCE-SP"
     assert pio["nome_chave"] == "FUNDACAO PIO XII"
+    assert pio["cnpj_raiz"] == "49150352"
     conn.close()
