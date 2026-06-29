@@ -1,0 +1,17 @@
+# Núcleo (necessário desde a Etapa 0/1) — instalação leve e sem dependências de sistema
+httpx>=0.27
+pydantic>=2.7
+pytest>=8.0
+ruff>=0.5
+
+# Análise / grafo (Etapas 6 e 7)
+networkx>=3.2
+pyvis>=0.3.2
+
+# Painel (Etapa 10)
+streamlit>=1.36
+
+# Relatórios em PDF (Etapa 9)
+# OBS: no Windows, weasyprint exige as bibliotecas GTK/Pango instaladas no sistema.
+# Instale apenas quando chegar na Etapa 9. Veja: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
+weasyprint>=62

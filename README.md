@@ -1,0 +1,65 @@
+# Observatório de Contratações Públicas — Barretos/SP
+
+Coleta contratos e licitações de Barretos/SP, descobre as empresas e seus donos,
+cruza com listas de punições e doações de campanha e aponta **indícios** (bandeiras
+vermelhas explicáveis) para apuração jornalística ou representação ao MP/TCE-SP.
+
+> **Não é um juiz.** Não existe "score de corrupção". Toda saída é um indício
+> rastreável até o dado oficial, com fonte e data. Veja os guardrails no blueprint.
+
+## Stack
+
+Python 3.11+ · SQLite · httpx · pydantic · pytest · networkx/pyvis · Streamlit · weasyprint
+
+## Setup
+
+```bash
+python -m venv .venv
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# Linux/Mac:
+# source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+> No Windows, `weasyprint` (Etapa 9) exige bibliotecas GTK/Pango do sistema.
+> Instale-o só ao chegar nessa etapa.
+
+## Uso (Etapa 0)
+
+```bash
+python -m src.db     # cria o banco SQLite em data/observatorio.db
+pytest               # roda a suíte de testes
+```
+
+## Estrutura
+
+```
+config.py            # constantes: IBGE, código TCE, CNPJs, limiares
+src/db.py            # conexão + criação do schema SQLite
+src/collectors/      # 1 coletor por fonte (busca e parse separados)
+src/normalize/       # normalização de CNPJ/CPF/nomes
+src/analysis/        # bandeiras vermelhas + grafo societário
+src/reports/         # geração de dossiês
+app/dashboard.py     # painel Streamlit
+tests/               # testes (offline, sobre fixtures salvas)
+```
+
+## Roadmap
+
+O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
+(0 a 11). Cada etapa só "fecha" quando os testes passam.
+
+- [x] **Etapa 0** — Fundação (estrutura, config, banco, pytest)
+- [ ] Etapa 1 — Coletor PNCP
+- [ ] Etapa 2 — Coletores TCE-SP (despesas + licitações)
+- [ ] Etapa 3 — Resolução de entidades
+- [ ] Etapa 4 — Enriquecimento societário (CNPJ/QSA)
+- [ ] Etapa 5 — Sanções (CEIS/CNEP + apenados TCE)
+- [ ] Etapa 6 — Motor de bandeiras vermelhas
+- [ ] Etapa 7 — Rede societária
+- [ ] Etapa 8 — Doações de campanha (TSE)
+- [ ] Etapa 9 — Dossiês / relatórios
+- [ ] Etapa 10 — Painel Streamlit
+- [ ] Etapa 11 — Legislativo + monitoramento contínuo
