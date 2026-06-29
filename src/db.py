@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS socios (
     nome_socio        TEXT,
     nome_socio_chave  TEXT,               -- normalizar_nome, p/ casamento por nome
     documento_socio   TEXT,               -- CPF vem MASCARADO pela RFB
+    documento_visivel TEXT,               -- 6 dígitos visíveis do CPF (chave parcial)
     cnpj_socio        TEXT,               -- quando o sócio é PJ (CNPJ válido)
     tipo_socio        TEXT,               -- PF / PJ / OUTRO
     qualificacao      TEXT,
@@ -151,6 +152,7 @@ CREATE INDEX IF NOT EXISTS idx_empresas_raiz ON empresas (cnpj_raiz);
 CREATE INDEX IF NOT EXISTS idx_socios_empresa ON socios (cnpj_empresa);
 CREATE INDEX IF NOT EXISTS idx_socios_nome ON socios (nome_socio_chave);
 CREATE INDEX IF NOT EXISTS idx_socios_cnpj ON socios (cnpj_socio);
+CREATE INDEX IF NOT EXISTS idx_socios_visivel ON socios (documento_visivel);
 """
 
 
@@ -185,6 +187,7 @@ _COLUNAS_ESPERADAS = {
         "municipio_nome": "TEXT", "uf": "TEXT", "raw": "TEXT", "coletado_em": "TEXT",
     },
     "fornecedores": {"cnpj_raiz": "TEXT"},
+    "socios": {"documento_visivel": "TEXT"},
 }
 
 

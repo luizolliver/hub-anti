@@ -18,11 +18,12 @@ Duas premissas de design importantes (baratas agora, dolorosas depois):
     filiais); o completo identifica o estabelecimento. A análise de rede
     (Etapa 7) precisa da raiz para reconhecer "a mesma empresa".
 
-  * **Pessoa física resolve por NOME, não por CPF.** O TCE-SP mascara o CPF
-    (mostra ~6 dígitos), então CPF vindo do TCE NÃO é chave confiável. Para
-    pessoas, o casamento é por `normalizar_nome` (fuzzy) e vale como **pista
-    fraca**, sujeita a homônimos — nunca como prova. Isso reaparece na Etapa 8
-    (doações).
+  * **Pessoa física: nome + dígitos visíveis do CPF.** A máscara da RFB/TCE
+    ('***234078**') esconde 3+2 dígitos mas **expõe os 6 do meio**, que são
+    estáveis para a mesma pessoa entre fontes. Logo a chave de casamento de
+    pessoa NÃO é só o nome: é (`normalizar_nome`, `digitos_visiveis`). Isso é
+    quase imune a homônimo. A classificação fica em `nivel_vinculo_socio`
+    (forte/provável/investigar). Reaparece na Etapa 7 (rede) e 8 (doações).
 
   * **Escopo atual da reconciliação.** `reconciliar_contratos` mescla
     contrato↔contrato entre fontes. Hoje o lado-TCE de *contratos* ainda não
@@ -120,6 +121,50 @@ def normalizar_nome(nome: str | None) -> str:
     limpo = re.sub(r"[^A-Za-z0-9 ]+", " ", sem_acento)
     # Colapsa espaços e maiúsculas.
     return re.sub(r"\s+", " ", limpo).strip().upper()
+
+
+def digitos_visiveis(documento: str | None) -> str | None:
+    """
+    Extrai os dígitos visíveis de um CPF mascarado pela RFB/TCE.
+
+    A máscara brasileira esconde os 3 primeiros e os 2 últimos dígitos, mas
+    deixa os **6 do meio** à mostra: '***234078**' -> '234078'. Esses 6 dígitos
+    são estáveis para a mesma pessoa em empresas/fontes diferentes — ou seja,
+    são uma **chave parcial utilizável**, não ruído. Quase imunes a homônimo
+    (dois 'José Silva' diferentes raramente colidem nos 6 dígitos).
+
+    Para sócio PJ o documento é um CNPJ completo (14 díg.); nesse caso o
+    casamento deve ser pelo CNPJ inteiro, não por esta função.
+    """
+    d = re.sub(r"\D", "", documento or "")
+    return d or None
+
+
+def nivel_vinculo_socio(
+    nome_a: str | None, doc_a: str | None, nome_b: str | None, doc_b: str | None
+) -> str | None:
+    """
+    Classifica o vínculo entre dois sócios (pessoa física) de empresas distintas,
+    usando nome normalizado + dígitos visíveis do CPF. Para a rede (Etapa 7).
+
+      'forte'      = mesmo nome E mesmos dígitos visíveis (quase sem homônimo)
+      'provavel'   = mesmo nome, sem dígitos para corroborar em pelo menos um lado
+      'investigar' = dígitos visíveis iguais, mas nomes diferentes (variação/erro?)
+      None         = sem vínculo (inclui nomes iguais mas dígitos presentes E
+                     diferentes → CPFs distintos = pessoas diferentes)
+
+    Recebe os documentos já como dígitos visíveis OU mascarados (normaliza aqui).
+    """
+    na, nb = normalizar_nome(nome_a), normalizar_nome(nome_b)
+    da, db = digitos_visiveis(doc_a), digitos_visiveis(doc_b)
+    nomes_iguais = bool(na) and na == nb
+
+    if da and db:  # dígitos dos dois lados
+        if da == db:
+            return "forte" if nomes_iguais else "investigar"
+        return None  # dígitos diferentes = pessoas diferentes, mesmo se nome igual
+    # falta dígito em ao menos um lado
+    return "provavel" if nomes_iguais else None
 
 
 # ---------------------------------------------------------------------------

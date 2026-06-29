@@ -14,7 +14,7 @@ import re
 
 from pydantic import BaseModel, Field
 
-from src.normalize.entidades import normalizar_cnpj, normalizar_nome
+from src.normalize.entidades import digitos_visiveis, normalizar_cnpj, normalizar_nome
 
 
 def _so_digitos(valor: str | None) -> str | None:
@@ -270,6 +270,9 @@ class Socio(BaseModel):
     nome_socio: str | None = None
     nome_socio_chave: str | None = None  # normalizar_nome — casamento por nome
     documento_socio: str | None = None  # como veio (CPF vem MASCARADO pela RFB)
+    # Dígitos visíveis do CPF mascarado (6 do meio) — chave parcial estável que,
+    # com o nome, casa a mesma pessoa entre empresas (ver nivel_vinculo_socio).
+    documento_visivel: str | None = None
     cnpj_socio: str | None = None  # quando o sócio é PJ e o CNPJ é válido
     tipo_socio: str | None = None  # PF / PJ / OUTRO
     qualificacao: str | None = None
@@ -289,6 +292,9 @@ class Socio(BaseModel):
         tipo = {1: "PJ", 2: "PF", 3: "OUTRO"}.get(ident, "OUTRO")
         doc = s.get("cnpj_cpf_do_socio")
         cnpj_socio = normalizar_cnpj(doc) if tipo == "PJ" else None
+        # Dígitos visíveis só fazem sentido para PF (CPF mascarado); para PJ a
+        # chave é o cnpj_socio inteiro.
+        visivel = digitos_visiveis(doc) if tipo == "PF" else None
         nome = s.get("nome_socio")
         chave = "|".join(
             str(x) for x in (cnpj_empresa, nome, doc, s.get("qualificacao_socio"),
@@ -300,6 +306,7 @@ class Socio(BaseModel):
             nome_socio=nome,
             nome_socio_chave=normalizar_nome(nome),
             documento_socio=doc,
+            documento_visivel=visivel,
             cnpj_socio=cnpj_socio,
             tipo_socio=tipo,
             qualificacao=s.get("qualificacao_socio"),

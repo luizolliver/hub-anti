@@ -67,8 +67,10 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 > partir das **despesas do TCE** (que já trazem CNPJ). Não há, hoje, vínculo
 > contrato-PNCP↔fornecedor: o lado-TCE de *contratos* só chega na Etapa 2B, e
 > despesa ≠ contrato (juntar exigiria casar por empenho). O CNPJ é guardado em
-> raiz (8 díg., agrupa matriz+filiais) e completo (14). CPF do TCE vem mascarado
-> → pessoa física resolve por **nome (fuzzy)**, pista fraca, nunca chave.
+> raiz (8 díg., agrupa matriz+filiais) e completo (14). CPF vem mascarado, mas a
+> máscara expõe os **6 dígitos do meio** → pessoa física casa por **(nome +
+> dígitos visíveis)** com nível de confiança (`nivel_vinculo_socio`:
+> forte/provável/investigar), quase imune a homônimo.
 - [x] **Etapa 4** — Enriquecimento societário (CNPJ/QSA via BrasilAPI; `empresas` + `socios`, cache)
 - [ ] Etapa 5 — Sanções (CEIS/CNEP + apenados TCE)
 - [ ] Etapa 6 — Motor de bandeiras vermelhas

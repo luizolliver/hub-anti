@@ -51,12 +51,18 @@ def test_parsear_socios(payload):
         assert s.qualificacao
 
 
-def test_socio_cpf_mascarado_nao_vira_chave(payload):
+def test_socio_cpf_mascarado_extrai_digitos_visiveis(payload):
     socios = parsear_socios(payload, "49150352000112")
     for s in socios:
-        # CPF mascarado é preservado como veio, mas não há cnpj_socio para PF.
+        # CPF mascarado é preservado; não há cnpj_socio para PF...
         assert s.documento_socio and "*" in s.documento_socio
         assert s.cnpj_socio is None
+        # ...mas os 6 dígitos visíveis viram chave parcial utilizável.
+        assert s.documento_visivel and s.documento_visivel.isdigit()
+        assert len(s.documento_visivel) == 6
+    # Henrique Duarte Prata: dígitos visíveis específicos da fixture.
+    hdp = next(s for s in socios if s.nome_socio == "HENRIQUE DUARTE PRATA")
+    assert hdp.documento_visivel == "234078"
 
 
 # --- cache + persistência ----------------------------------------------------

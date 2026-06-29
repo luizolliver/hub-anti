@@ -119,10 +119,12 @@ def salvar_socios(conn: sqlite3.Connection, cnpj_empresa: str, socios: list[Soci
             """
             INSERT OR IGNORE INTO socios
                 (id, cnpj_empresa, nome_socio, nome_socio_chave, documento_socio,
-                 cnpj_socio, tipo_socio, qualificacao, data_entrada, faixa_etaria, raw)
+                 documento_visivel, cnpj_socio, tipo_socio, qualificacao,
+                 data_entrada, faixa_etaria, raw)
             VALUES
                 (:id, :cnpj_empresa, :nome_socio, :nome_socio_chave, :documento_socio,
-                 :cnpj_socio, :tipo_socio, :qualificacao, :data_entrada, :faixa_etaria, :raw)
+                 :documento_visivel, :cnpj_socio, :tipo_socio, :qualificacao,
+                 :data_entrada, :faixa_etaria, :raw)
             """,
             [s.para_linha_db() for s in socios],
         )

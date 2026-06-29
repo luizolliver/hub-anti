@@ -14,6 +14,8 @@ from src.normalize.entidades import (
     cnpj_valido,
     construir_fornecedores,
     cpf_valido,
+    digitos_visiveis,
+    nivel_vinculo_socio,
     normalizar_cnpj,
     normalizar_nome,
     reconciliar_contratos,
@@ -75,6 +77,29 @@ def test_normalizar_nome_equivalencia():
 def test_normalizar_nome_vazio():
     assert normalizar_nome(None) == ""
     assert normalizar_nome("") == ""
+
+
+# --- Dígitos visíveis e vínculo de sócio ------------------------------------
+def test_digitos_visiveis():
+    assert digitos_visiveis("***234078**") == "234078"
+    assert digitos_visiveis(None) is None
+    assert digitos_visiveis("") is None
+
+
+def test_nivel_vinculo_socio():
+    # Mesmo nome + mesmos dígitos visíveis = forte (o caso Henrique Duarte Prata).
+    assert nivel_vinculo_socio(
+        "HENRIQUE DUARTE PRATA", "***234078**",
+        "Henrique Duarte Prata", "***234078**",
+    ) == "forte"
+    # Mesmo nome, um lado sem dígitos = provável.
+    assert nivel_vinculo_socio("JOSE SILVA", None, "JOSE SILVA", "***234078**") == "provavel"
+    # Dígitos iguais, nomes diferentes = investigar.
+    assert nivel_vinculo_socio("MARIA A", "***234078**", "MARIA B", "***234078**") == "investigar"
+    # Mesmo nome, dígitos presentes mas diferentes = pessoas diferentes (None).
+    assert nivel_vinculo_socio("JOSE SILVA", "***111111**", "JOSE SILVA", "***222222**") is None
+    # Sem nada em comum.
+    assert nivel_vinculo_socio("A", None, "B", None) is None
 
 
 # --- Reconciliação de contratos ---------------------------------------------
