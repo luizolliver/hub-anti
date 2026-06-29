@@ -1,2 +1,20 @@
 /.claude
 /blueprint-observatorio-barretos.md
+
+# Dados brutos e banco (regeneráveis — nunca versionar)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
