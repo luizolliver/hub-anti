@@ -89,6 +89,21 @@ CREATE TABLE IF NOT EXISTS despesas (
 
 CREATE INDEX IF NOT EXISTS idx_despesas_forn ON despesas (fornecedor_documento);
 CREATE INDEX IF NOT EXISTS idx_despesas_evento ON despesas (evento);
+
+CREATE TABLE IF NOT EXISTS fornecedores (
+    -- CNPJ normalizado e validado (14 dígitos) — chave única.
+    cnpj             TEXT PRIMARY KEY,
+    nome             TEXT,            -- nome canônico escolhido
+    nome_chave       TEXT,            -- normalizar_nome(nome), p/ casamento
+    n_contratos      INTEGER DEFAULT 0,   -- referências em contratos (PNCP)
+    n_despesas       INTEGER DEFAULT 0,   -- referências em despesas (TCE)
+    valor_contratos  REAL DEFAULT 0,      -- soma dos contratos
+    valor_pago       REAL DEFAULT 0,      -- soma das despesas 'Valor Pago'
+    fontes           TEXT,                -- ex.: 'PNCP,TCE-SP'
+    atualizado_em    TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores (nome_chave);
 """
 
 

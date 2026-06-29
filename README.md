@@ -61,7 +61,7 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 
 - [x] **Etapa 2A** — Despesas TCE-SP (API REST 2014–2019; fonte primária do fornecedor)
 - [ ] Etapa 2B — Licitações/Contratos TCE-SP (cubo Fase IV) + CSV em massa
-- [ ] Etapa 3 — Resolução de entidades
+- [x] **Etapa 3** — Resolução de entidades (normalização CNPJ/CPF/nome, tabela `fornecedores`, reconciliação)
 - [ ] Etapa 4 — Enriquecimento societário (CNPJ/QSA)
 - [ ] Etapa 5 — Sanções (CEIS/CNEP + apenados TCE)
 - [ ] Etapa 6 — Motor de bandeiras vermelhas
