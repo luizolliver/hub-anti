@@ -1,0 +1,142 @@
+[
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000001-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 02558157000162",
+    "nm_fornecedor": "Telefônica Brasil S.A.",
+    "dt_emissao_despesa": "06/01/2019",
+    "vl_despesa": "289,61"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000025-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 61198164000160",
+    "nm_fornecedor": "Porto Seguro Cia.de Seguros Gerais",
+    "dt_emissao_despesa": "21/01/2019",
+    "vl_despesa": "3642,71"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000067-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 33050196000188",
+    "nm_fornecedor": "C.P.F.L. Companhia Paulista de Força e Luz",
+    "dt_emissao_despesa": "23/01/2019",
+    "vl_despesa": "1582,98"
+  },
+  {
+    "orgao": "INSTITUTO DE PREVIDENCIA DO MUNICIPIO DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000018-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 08098069000101",
+    "nm_fornecedor": "METAPUBLICA CONSULTORIA E ASSESSORIA GESTAO PUBLIC",
+    "dt_emissao_despesa": "02/01/2019",
+    "vl_despesa": "9000,00"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Liquidado",
+    "nr_empenho": "000006-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 45289329000152",
+    "nm_fornecedor": "Serviço Autônomo de Água e Esgoto de Barretos",
+    "dt_emissao_despesa": "03/01/2019",
+    "vl_despesa": "29,44"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Liquidado",
+    "nr_empenho": "000035-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 114968",
+    "nm_fornecedor": "João Roberto dos Santos",
+    "dt_emissao_despesa": "24/01/2019",
+    "vl_despesa": "6484,00"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Liquidado",
+    "nr_empenho": "000019-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 02558157000162",
+    "nm_fornecedor": "Telefônica Brasil S.A.",
+    "dt_emissao_despesa": "02/01/2019",
+    "vl_despesa": "179,65"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Liquidado",
+    "nr_empenho": "000032-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 924378",
+    "nm_fornecedor": "Carlos Henrique dos Santos",
+    "dt_emissao_despesa": "24/01/2019",
+    "vl_despesa": "6484,00"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Pago",
+    "nr_empenho": "000042-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 686238",
+    "nm_fornecedor": "Paulo Henrique Corrêa",
+    "dt_emissao_despesa": "24/01/2019",
+    "vl_despesa": "1379,44"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Pago",
+    "nr_empenho": "000030-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 162078",
+    "nm_fornecedor": "Almir Ferreira Neves",
+    "dt_emissao_despesa": "25/01/2019",
+    "vl_despesa": "5156,70"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Valor Pago",
+    "nr_empenho": "000058-2019",
+    "id_fornecedor": "CNPJ - PESSOA JURÍDICA - 29979036034207",
+    "nm_fornecedor": "I.N.S.S. - Instituto Nacional de Seguridade Social",
+    "dt_emissao_despesa": "30/01/2019",
+    "vl_despesa": "11371,37"
+  },
+  {
+    "orgao": "SERVIÇO AUTONOMO DE AGUA E ESGOTO DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Anulação",
+    "nr_empenho": "91-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 545558",
+    "nm_fornecedor": "MARCELO SOARES DOS SANTOS",
+    "dt_emissao_despesa": "28/01/2019",
+    "vl_despesa": "244,71"
+  },
+  {
+    "orgao": "CÂMARA MUNICIPAL DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000030-2019",
+    "id_fornecedor": "PESSOA FÍSICA - 162078",
+    "nm_fornecedor": "Almir Ferreira Neves",
+    "dt_emissao_despesa": "24/01/2019",
+    "vl_despesa": "6484,00"
+  },
+  {
+    "orgao": "INSTITUTO DE PREVIDENCIA DO MUNICIPIO DE BARRETOS",
+    "mes": "Janeiro",
+    "evento": "Empenhado",
+    "nr_empenho": "000058-2019",
+    "id_fornecedor": "IDENTIFICAÇÃO ESPECIAL - SEM CPF/CNPJ - 00000200022",
+    "nm_fornecedor": "INSTITUTO NACIONAL DO SEGURO SOCIAL",
+    "dt_emissao_despesa": "30/01/2019",
+    "vl_despesa": "3479,93"
+  }
+]

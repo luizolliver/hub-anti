@@ -62,6 +62,33 @@ CREATE TABLE IF NOT EXISTS contratos (
 
 CREATE INDEX IF NOT EXISTS idx_contratos_cnpj ON contratos (fornecedor_cnpj);
 CREATE INDEX IF NOT EXISTS idx_contratos_fonte ON contratos (fonte);
+
+CREATE TABLE IF NOT EXISTS despesas (
+    -- Identificador sintético (hash do conteúdo da linha) p/ deduplicação.
+    id                    TEXT PRIMARY KEY,
+    fonte                 TEXT NOT NULL,        -- sempre 'TCE-SP'
+    municipio             TEXT,                 -- slug do município (ex.: 'barretos')
+    -- Órgão da despesa (Prefeitura, Câmara, IPM, SAAE...).
+    orgao                 TEXT,
+    ano                   TEXT,
+    mes                   TEXT,
+    -- Estágio da despesa: Empenhado / Valor Liquidado / Valor Pago / Anulação / Reforço.
+    evento                TEXT,
+    nr_empenho            TEXT,
+    -- CNPJ do fornecedor (apenas dígitos) quando o tipo é CNPJ; senão NULL.
+    fornecedor_documento  TEXT,
+    -- Classificação: 'CNPJ', 'CPF' (mascarado pelo TCE) ou 'OUTRO'.
+    fornecedor_tipo       TEXT,
+    fornecedor_nome       TEXT,
+    -- Data de emissão da despesa em ISO (AAAA-MM-DD).
+    data                  TEXT,
+    valor                 REAL,
+    raw                   TEXT,
+    coletado_em           TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_despesas_forn ON despesas (fornecedor_documento);
+CREATE INDEX IF NOT EXISTS idx_despesas_evento ON despesas (evento);
 """
 
 

@@ -29,10 +29,16 @@ DB_PATH = DATA_DIR / "observatorio.db"
 # Usado como filtro principal nas consultas ao PNCP.
 CODIGO_IBGE = "3505500"
 
-# Como Barretos aparece DENTRO dos CSVs do TCE-SP (a confirmar na Etapa 2).
+# Como Barretos aparece DENTRO dos CSVs em massa do TCE-SP (a confirmar na 2B).
 # Provavelmente o nome "BARRETOS"; pode também ser um código de município do TCE.
-# PLACEHOLDER — confirmar ao inspecionar os arquivos reais do TCE-SP.
+# PLACEHOLDER — confirmar ao inspecionar os arquivos CSV reais do TCE-SP.
 CODIGO_TCE_MUNICIPIO = "BARRETOS"
+
+# Slug do município na API REST do TCE-SP (confirmado em /api/json/municipios).
+TCE_MUNICIPIO_SLUG = "barretos"
+
+# Base da API REST do TCE-SP (Despesas 2014–2019; protótipo da Etapa 2A).
+TCE_REST_URL = "https://transparencia.tce.sp.gov.br/api/json"
 
 # Unidade da Federação.
 UF = "SP"

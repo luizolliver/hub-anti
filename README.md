@@ -59,7 +59,8 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 > bônus para quando a consulta API voltar — não é o caminho principal. Contratos do
 > PNCP podem ficar com fornecedor nulo até o cruzamento com o TCE.
 
-- [ ] Etapa 2 — Coletores TCE-SP (despesas + licitações)
+- [x] **Etapa 2A** — Despesas TCE-SP (API REST 2014–2019; fonte primária do fornecedor)
+- [ ] Etapa 2B — Licitações/Contratos TCE-SP (cubo Fase IV) + CSV em massa
 - [ ] Etapa 3 — Resolução de entidades
 - [ ] Etapa 4 — Enriquecimento societário (CNPJ/QSA)
 - [ ] Etapa 5 — Sanções (CEIS/CNEP + apenados TCE)
