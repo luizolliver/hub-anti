@@ -136,6 +136,28 @@ CREATE TABLE IF NOT EXISTS socios (
     raw               TEXT
 );
 
+-- Apenas os CRUZAMENTOS encontrados (não o cadastro inteiro de sanções).
+CREATE TABLE IF NOT EXISTS sancoes_encontradas (
+    id                   TEXT PRIMARY KEY,  -- hash sintético
+    -- O que casou: 'fornecedor', 'socio_pj' (CNPJ) ou 'socio_pf' (CPF núcleo+nome).
+    alvo_tipo            TEXT,
+    alvo_cnpj            TEXT,   -- CNPJ do fornecedor ou da empresa do sócio
+    alvo_nome            TEXT,
+    -- Confiança do vínculo: 'cnpj' (exato) / 'forte' / 'investigar' / 'provavel'.
+    vinculo              TEXT,
+    fonte                TEXT,   -- CEIS / CNEP
+    documento_sancionado TEXT,
+    nome_sancionado      TEXT,
+    categoria            TEXT,
+    data_inicio          TEXT,
+    data_fim             TEXT,
+    orgao_sancionador    TEXT,
+    abrangencia          TEXT,
+    fundamentacao        TEXT,
+    raw                  TEXT,
+    encontrado_em        TEXT DEFAULT (datetime('now'))
+);
+
 """
 
 
@@ -153,6 +175,7 @@ CREATE INDEX IF NOT EXISTS idx_socios_empresa ON socios (cnpj_empresa);
 CREATE INDEX IF NOT EXISTS idx_socios_nome ON socios (nome_socio_chave);
 CREATE INDEX IF NOT EXISTS idx_socios_cnpj ON socios (cnpj_socio);
 CREATE INDEX IF NOT EXISTS idx_socios_visivel ON socios (documento_visivel);
+CREATE INDEX IF NOT EXISTS idx_sancoes_alvo ON sancoes_encontradas (alvo_cnpj);
 """
 
 

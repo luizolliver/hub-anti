@@ -314,3 +314,55 @@ class Socio(BaseModel):
             faixa_etaria=s.get("faixa_etaria"),
             raw=s,
         )
+
+
+def _coluna(row: dict, *needles: str) -> str | None:
+    """
+    Lê um valor de `row` por busca aproximada do nome da coluna (sem acento,
+    maiúsculas). Robusto a variações de cabeçalho do CEIS/CNEP (que têm acentos
+    e até erros, como 'ABRAGÊNCIA'). Casa a primeira coluna que contém o needle.
+    """
+    alvo = normalizar_nome(needles[0])
+    for chave, valor in row.items():
+        if alvo in normalizar_nome(chave):
+            return (valor or None) if isinstance(valor, str) else valor
+    return None
+
+
+class Sancao(BaseModel):
+    """
+    Uma sanção do CEIS (inidôneas/suspensas) ou CNEP (Lei Anticorrupção),
+    do Portal da Transparência federal — Etapa 5.
+    """
+
+    fonte: str  # CEIS / CNEP
+    tipo_pessoa: str | None = None  # F / J
+    documento: str | None = None  # CPF (11) ou CNPJ (14), só dígitos
+    nome_sancionado: str | None = None
+    razao_social: str | None = None
+    categoria: str | None = None
+    data_inicio: str | None = None  # ISO
+    data_fim: str | None = None
+    orgao_sancionador: str | None = None
+    uf_orgao: str | None = None
+    abrangencia: str | None = None
+    fundamentacao: str | None = None
+    raw: dict = Field(default_factory=dict)
+
+    @classmethod
+    def from_portal(cls, row: dict, fonte: str) -> "Sancao":
+        return cls(
+            fonte=fonte,
+            tipo_pessoa=_coluna(row, "TIPO DE PESSOA"),
+            documento=_so_digitos(_coluna(row, "CPF OU CNPJ")),
+            nome_sancionado=_coluna(row, "NOME DO SANCIONADO"),
+            razao_social=_coluna(row, "RAZAO SOCIAL"),
+            categoria=_coluna(row, "CATEGORIA DA SANCAO"),
+            data_inicio=parse_data_br(_coluna(row, "DATA INICIO")),
+            data_fim=parse_data_br(_coluna(row, "DATA FINAL")),
+            orgao_sancionador=_coluna(row, "ORGAO SANCIONADOR"),
+            uf_orgao=_coluna(row, "UF ORGAO"),
+            abrangencia=_coluna(row, "ABRAG"),  # cabeçalho traz 'ABRAGÊNCIA'
+            fundamentacao=_coluna(row, "FUNDAMENTACAO LEGAL"),
+            raw=row,
+        )

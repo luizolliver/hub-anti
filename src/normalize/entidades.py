@@ -140,6 +140,25 @@ def digitos_visiveis(documento: str | None) -> str | None:
     return d or None
 
 
+def cpf_nucleo(documento: str | None) -> str | None:
+    """
+    Reduz um CPF ao seu "núcleo" de 6 dígitos comparável entre fontes.
+
+      - CPF completo (11 díg., ex.: vindo do CEIS/CNEP) -> os 6 do meio (díg. 4–9).
+      - CPF mascarado (6 díg. visíveis, ex.: QSA/TCE) -> ele mesmo.
+      - Qualquer outro tamanho -> None.
+
+    Permite casar um sancionado (CPF cheio) com um sócio (CPF mascarado): ambos
+    reduzem ao mesmo núcleo de 6 dígitos.
+    """
+    d = re.sub(r"\D", "", documento or "")
+    if len(d) == 11:
+        return d[3:9]
+    if len(d) == 6:
+        return d
+    return None
+
+
 def nivel_vinculo_socio(
     nome_a: str | None, doc_a: str | None, nome_b: str | None, doc_b: str | None
 ) -> str | None:
@@ -153,10 +172,11 @@ def nivel_vinculo_socio(
       None         = sem vínculo (inclui nomes iguais mas dígitos presentes E
                      diferentes → CPFs distintos = pessoas diferentes)
 
-    Recebe os documentos já como dígitos visíveis OU mascarados (normaliza aqui).
+    Os documentos podem vir mascarados (6 díg.) ou completos (CPF de 11, ex.:
+    CEIS/CNEP): ambos são reduzidos ao núcleo de 6 dígitos (`cpf_nucleo`).
     """
     na, nb = normalizar_nome(nome_a), normalizar_nome(nome_b)
-    da, db = digitos_visiveis(doc_a), digitos_visiveis(doc_b)
+    da, db = cpf_nucleo(doc_a), cpf_nucleo(doc_b)
     nomes_iguais = bool(na) and na == nb
 
     if da and db:  # dígitos dos dois lados
