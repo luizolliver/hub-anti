@@ -1,10 +1,11 @@
-# Tema "hacker" — terminal verde sobre preto.
+# Tema base — dark; o visual fino vem do CSS injetado em app/dashboard.py
+# (mockup observatorio_barretos: lime #aaff00 + dados matrix-green #00e639).
 [theme]
 base = "dark"
-primaryColor = "#00ff41"
-backgroundColor = "#080b08"
-secondaryBackgroundColor = "#0d140d"
-textColor = "#00ff41"
+primaryColor = "#aaff00"
+backgroundColor = "#040404"
+secondaryBackgroundColor = "#0e0e0e"
+textColor = "#cccccc"
 font = "monospace"
 
 [server]
