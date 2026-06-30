@@ -163,7 +163,11 @@ class Contrato(BaseModel):
         data = parse_data_br(_coluna(row, "Vigência do contrato - Data Assinatura")) or parse_data_br(
             _coluna(row, "Data da Nota de Empenho")
         )
-        ano = _coluna(row, "Ano do contrato") or _coluna(row, "Ano do processo licitatório")
+        ano = (
+            _coluna(row, "Ano do contrato")
+            or _coluna(row, "Ano do processo licitatório")
+            or (data[:4] if data else None)  # último recurso: ano da assinatura/empenho
+        )
         objeto = (
             _coluna(row, "Descrição do objeto contratado")
             or _coluna(row, "Descrição do objeto da licitação")

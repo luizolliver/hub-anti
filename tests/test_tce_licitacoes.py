@@ -72,6 +72,26 @@ def test_ajuste_nota_empenho_cai_para_valor_da_nota(linhas):
     assert c.modalidade == "Pregao Presencial"
 
 
+def test_ano_cai_para_o_ano_da_data():
+    # Sem 'Ano do contrato' nem 'Ano do processo': deriva da data (assinatura/empenho).
+    row = {
+        "Código do Ajuste": "2020900000999",
+        "Município": "Barretos",
+        "Entidade": "PREFEITURA MUNICIPAL DE BARRETOS",
+        "Modalidade de licitação": "Pregao Presencial",
+        "Ano do contrato": "",
+        "Ano do processo licitatório": "",
+        "Descrição do objeto contratado": "Item qualquer",
+        "Valor da Nota de Empenho/Documento Similar": "123,45",
+        "Data da Nota de Empenho/Documento Similar": "10/03/2020",
+        "CNPJ da empresa contratada": "05.808.979/0001-42",
+        "Nome da empresa contratada": "FORNECEDOR X",
+    }
+    c = Contrato.from_tce_ajuste(row)
+    assert c.data == "2020-03-10"
+    assert c.ano == "2020"
+
+
 def test_municipio_e_uf(linhas):
     contratos = parsear_ajustes(linhas, municipio_ibge="3505500")
     assert all(c.municipio_ibge == "3505500" for c in contratos)
