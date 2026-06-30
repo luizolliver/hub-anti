@@ -14,7 +14,9 @@ remotezip>=0.12
 # Painel (Etapa 10)
 streamlit>=1.36
 
-# Relatórios em PDF (Etapa 9)
+# Relatórios (Etapa 9): markdown é Python puro (HTML sempre funciona)
+markdown>=3.5
+# Relatórios em PDF (Etapa 9) — opcional
 # OBS: no Windows, weasyprint exige as bibliotecas GTK/Pango instaladas no sistema.
 # Instale apenas quando chegar na Etapa 9. Veja: https://doc.courtbouillon.org/weasyprint/stable/first_steps.html
 weasyprint>=62

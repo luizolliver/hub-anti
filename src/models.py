@@ -335,13 +335,24 @@ def _coluna(row: dict, *needles: str) -> str | None:
     """
     Lê um valor de `row` por busca aproximada do nome da coluna (sem acento,
     maiúsculas). Robusto a variações de cabeçalho do CEIS/CNEP (que têm acentos
-    e até erros, como 'ABRAGÊNCIA'). Casa a primeira coluna que contém o needle.
+    e até erros, como 'ABRAGÊNCIA').
+
+    Prioriza o match **exato** do nome normalizado; só então cai para a coluna
+    mais curta que *contém* o needle. Isso evita capturar 'NOME INFORMADO PELO
+    ÓRGÃO SANCIONADOR' quando se pede 'ÓRGÃO SANCIONADOR'.
     """
     alvo = normalizar_nome(needles[0])
+    candidatos: list[tuple[int, object]] = []
     for chave, valor in row.items():
-        if alvo in normalizar_nome(chave):
+        nk = normalizar_nome(chave)
+        if nk == alvo:  # match exato vence
             return (valor or None) if isinstance(valor, str) else valor
-    return None
+        if alvo in nk:
+            candidatos.append((len(nk), valor))
+    if not candidatos:
+        return None
+    valor = min(candidatos, key=lambda c: c[0])[1]  # a coluna mais curta que contém
+    return (valor or None) if isinstance(valor, str) else valor
 
 
 class Sancao(BaseModel):

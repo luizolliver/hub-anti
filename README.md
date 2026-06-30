@@ -76,6 +76,6 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 - [x] **Etapa 6** — Motor de bandeiras vermelhas (`analysis/flags.py`, 1 função pura por regra + agregador)
 - [x] **Etapa 7** — Rede societária (`networkx`: sócio em comum + clusters; export `pyvis` HTML)
 - [x] **Etapa 8** — Doações de campanha TSE (range no zip nacional; doador↔sócio por CPF-núcleo+nome, doador↔fornecedor por CNPJ)
-- [ ] Etapa 9 — Dossiês / relatórios
+- [x] **Etapa 9** — Dossiês (Markdown + HTML sempre; PDF opcional via weasyprint/GTK)
 - [ ] Etapa 10 — Painel Streamlit
 - [ ] Etapa 11 — Legislativo + monitoramento contínuo

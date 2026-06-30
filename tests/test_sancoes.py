@@ -41,6 +41,14 @@ def test_parser_extrai_campos(sancoes_ceis):
     assert 11 in tamanhos
 
 
+def test_orgao_sancionador_nao_eh_nome_informado(sancoes_ceis):
+    # 'ÓRGÃO SANCIONADOR' (órgão real) não pode ser confundido com
+    # 'NOME INFORMADO PELO ÓRGÃO SANCIONADOR' (nome do sancionado).
+    for s in sancoes_ceis:
+        if s.orgao_sancionador and s.nome_sancionado:
+            assert s.orgao_sancionador != s.nome_sancionado
+
+
 def test_data_em_iso(sancoes_ceis):
     com_data = [s for s in sancoes_ceis if s.data_inicio]
     assert com_data
