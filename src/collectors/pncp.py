@@ -111,7 +111,7 @@ def enriquecer_fornecedor(contrato: Contrato, client: httpx.Client | None = None
     if len(partes) < 4:
         return contrato
     _, cnpj, ano, seq = partes[0], partes[1], partes[2], partes[3]
-    url = f"{config.PNCP_CONSULTA_URL}/v1/orgaos/{cnpj}/contratos/{ano}/{seq}"
+    url = f"{config.PNCP_DETALHE_URL}/v1/orgaos/{cnpj}/contratos/{ano}/{seq}"
 
     proprio = client is None
     client = client or httpx.Client()

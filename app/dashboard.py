@@ -251,10 +251,10 @@ def pagina_visao_geral(conn):
             str(r["nivel_atencao"]),
             f"<span class='dim'>{_e(r['cnpj'])}</span>",
             f"<span class='nm'>{_e((r['nome'] or '—')[:40])}</span>",
-            _moeda(r["valor_pago"]),
+            _moeda(r["valor_total"]),
             f"<span class='dim'>{_e(', '.join(r['bandeiras']))}</span>",
         ] for r in rank]
-        _tbl(["nível", "cnpj", "fornecedor", "R$ recebido", "bandeiras"], linhas)
+        _tbl(["nível", "cnpj", "fornecedor", "R$ movimentado", "bandeiras"], linhas)
     else:
         st.info("sem bandeiras ainda — rode os coletores e o enriquecimento (Etapas 4/5).")
 

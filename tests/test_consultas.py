@@ -158,4 +158,7 @@ def test_ranking_inclui_flags_novas(tmp_path):
     assert "EMPRESA_NOVA_NO_CONTRATO" in alfa["bandeiras"]
     # Só 2 empresas com o sócio em comum → a bandeira de sócio NÃO dispara.
     assert "SOCIO_MULTIPLAS_EMPRESAS_FORNECEDORAS" not in alfa["bandeiras"]
+    # valor_total = pago (0) + contratado (500k) — não exibe R$ 0 enganoso.
+    assert alfa["valor_pago"] == 0
+    assert alfa["valor_total"] == 500000.0
     conn.close()

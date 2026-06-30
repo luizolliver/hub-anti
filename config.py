@@ -56,10 +56,15 @@ PNCP_MUNICIPIO_ID = "3330"
 # mas NÃO o fornecedor vencedor. Usada como fonte primária de descoberta.
 PNCP_SEARCH_URL = "https://pncp.gov.br/api/search/"
 
-# Consulta API oficial (Lei 14.133) — traz o detalhe completo, incluindo o
-# fornecedor (niFornecedor/nomeRazaoSocialFornecedor). Usada para enriquecer
-# cada contrato. Atenção: este serviço sofre indisponibilidades (HTTP 504).
+# Consulta API oficial (Lei 14.133) — filtros por data/órgão. Atenção: sofre
+# indisponibilidades (HTTP 504). Mantida para consultas agregadas.
 PNCP_CONSULTA_URL = "https://pncp.gov.br/api/consulta"
+
+# API de detalhe do PNCP — traz o contrato completo, incluindo o fornecedor
+# (niFornecedor/nomeRazaoSocialFornecedor) em
+# /v1/orgaos/{cnpj}/contratos/{ano}/{seq}. É a base correta do enriquecimento
+# (a /api/consulta retorna 404 para esse caminho de detalhe).
+PNCP_DETALHE_URL = "https://pncp.gov.br/api/pncp"
 
 
 # ---------------------------------------------------------------------------

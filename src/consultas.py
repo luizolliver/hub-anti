@@ -235,23 +235,29 @@ def ranking_atencao(conn: sqlite3.Connection, limite: int = 50, minimo: int = 1)
     """
     bandeiras = _bandeiras_lote(conn)
     nomes = {
-        r["cnpj"]: (r["nome"], r["valor_pago"])
-        for r in conn.execute("SELECT cnpj, nome, valor_pago FROM fornecedores")
+        r["cnpj"]: r
+        for r in conn.execute("SELECT cnpj, nome, valor_pago, valor_contratos FROM fornecedores")
     }
     linhas = []
     for cnpj, bs in bandeiras.items():
         nivel = sum(b.peso for b in bs)
         if nivel < minimo:
             continue
-        nome, valor = nomes.get(cnpj, (None, 0))
+        f = nomes.get(cnpj)
+        pago = (f["valor_pago"] if f else 0) or 0
+        contratado = (f["valor_contratos"] if f else 0) or 0
         linhas.append({
             "cnpj": cnpj,
-            "nome": nome,
-            "valor_pago": valor or 0,
+            "nome": f["nome"] if f else None,
+            "valor_pago": pago,
+            "valor_contratos": contratado,
+            # Volume financeiro conhecido: pago (despesas TCE) + contratado
+            # (ajustes TCE/PNCP). Evita exibir R$ 0 para quem só tem contratos.
+            "valor_total": round(pago + contratado, 2),
             "nivel_atencao": nivel,
             "bandeiras": [b.codigo for b in bs],
         })
-    linhas.sort(key=lambda x: (x["nivel_atencao"], x["valor_pago"]), reverse=True)
+    linhas.sort(key=lambda x: (x["nivel_atencao"], x["valor_total"]), reverse=True)
     return linhas[:limite]
 
 
