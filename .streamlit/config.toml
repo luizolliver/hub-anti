@@ -1,0 +1,14 @@
+# Tema "hacker" — terminal verde sobre preto.
+[theme]
+base = "dark"
+primaryColor = "#00ff41"
+backgroundColor = "#080b08"
+secondaryBackgroundColor = "#0d140d"
+textColor = "#00ff41"
+font = "monospace"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
