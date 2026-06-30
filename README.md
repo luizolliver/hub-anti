@@ -31,8 +31,9 @@ pip install -r requirements.txt
 ```bash
 python -m src.db     # cria o banco SQLite em data/observatorio.db
 pytest               # roda a suíte de testes
-```
 streamlit run app/dashboard.py
+```
+
 
 ## Estrutura
 
