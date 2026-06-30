@@ -36,6 +36,7 @@ Duas premissas de design importantes (baratas agora, dolorosas depois):
 
 from __future__ import annotations
 
+import datetime
 import re
 import sqlite3
 import unicodedata
@@ -138,6 +139,25 @@ def digitos_visiveis(documento: str | None) -> str | None:
     """
     d = re.sub(r"\D", "", documento or "")
     return d or None
+
+
+def idade_empresa_meses(data_inicio_iso: str | None, data_ref_iso: str | None) -> int | None:
+    """
+    Idade da empresa, em meses inteiros, entre a abertura (`data_inicio_atividade`)
+    e uma data de referência (ex.: a data do contrato). None se faltar/for inválida.
+    Base da bandeira de empresa recém-aberta (Etapa 6).
+    """
+    if not data_inicio_iso or not data_ref_iso:
+        return None
+    try:
+        a = datetime.date.fromisoformat(data_inicio_iso[:10])
+        b = datetime.date.fromisoformat(data_ref_iso[:10])
+    except ValueError:
+        return None
+    meses = (b.year - a.year) * 12 + (b.month - a.month)
+    if b.day < a.day:
+        meses -= 1
+    return meses
 
 
 def cpf_nucleo(documento: str | None) -> str | None:

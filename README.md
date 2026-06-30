@@ -73,7 +73,7 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 > forte/provável/investigar), quase imune a homônimo.
 - [x] **Etapa 4** — Enriquecimento societário (CNPJ/QSA via BrasilAPI; `empresas` + `socios`, cache)
 - [x] **Etapa 5** — Sanções CEIS/CNEP (cruzamento por CNPJ e por CPF-núcleo+nome; idade da empresa). Apenados do TCE: sub-etapa de raspagem adiada
-- [ ] Etapa 6 — Motor de bandeiras vermelhas
+- [x] **Etapa 6** — Motor de bandeiras vermelhas (`analysis/flags.py`, 1 função pura por regra + agregador)
 - [ ] Etapa 7 — Rede societária
 - [ ] Etapa 8 — Doações de campanha (TSE)
 - [ ] Etapa 9 — Dossiês / relatórios

@@ -36,7 +36,10 @@ import httpx
 
 from src.db import init_db
 from src.models import Sancao
-from src.normalize.entidades import cpf_nucleo, nivel_vinculo_socio
+from src.normalize.entidades import cpf_nucleo, idade_empresa_meses, nivel_vinculo_socio
+
+__all__ = ["buscar_ceis", "buscar_cnep", "parsear_sancoes", "cruzar_sancoes",
+           "ler_csv_sancoes", "idade_empresa_meses"]
 
 _PORTAL = "https://portaldatransparencia.gov.br/download-de-dados"
 # O Portal usa um WAF que exige cabeçalhos de navegador.
@@ -106,27 +109,6 @@ def buscar_cnep() -> list[dict]:
 def parsear_sancoes(rows: list[dict], fonte: str) -> list[Sancao]:
     """Linhas brutas do Portal → lista de `Sancao`. Sem rede."""
     return [Sancao.from_portal(r, fonte) for r in rows]
-
-
-# ---------------------------------------------------------------------------
-# IDADE DA EMPRESA (função pura)
-# ---------------------------------------------------------------------------
-def idade_empresa_meses(data_inicio_iso: str | None, data_ref_iso: str | None) -> int | None:
-    """
-    Idade da empresa, em meses inteiros, entre a abertura e uma data de
-    referência (ex.: a data do contrato). None se faltar/for inválida.
-    """
-    if not data_inicio_iso or not data_ref_iso:
-        return None
-    try:
-        a = datetime.date.fromisoformat(data_inicio_iso[:10])
-        b = datetime.date.fromisoformat(data_ref_iso[:10])
-    except ValueError:
-        return None
-    meses = (b.year - a.year) * 12 + (b.month - a.month)
-    if b.day < a.day:
-        meses -= 1
-    return meses
 
 
 # ---------------------------------------------------------------------------

@@ -316,6 +316,21 @@ class Socio(BaseModel):
         )
 
 
+class Bandeira(BaseModel):
+    """
+    Uma bandeira vermelha (indício) levantada por uma regra de `analysis/flags`.
+
+    Sempre explicável: além do código e da descrição legível, carrega a
+    `evidencia` (os dados que a justificam) e um `peso` que entra no
+    "nível de atenção" do contrato/fornecedor.
+    """
+
+    codigo: str
+    descricao: str
+    evidencia: dict = Field(default_factory=dict)
+    peso: int = 1
+
+
 def _coluna(row: dict, *needles: str) -> str | None:
     """
     Lê um valor de `row` por busca aproximada do nome da coluna (sem acento,
