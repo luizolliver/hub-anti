@@ -310,9 +310,10 @@ def construir_fornecedores(conn: sqlite3.Connection) -> int:
             },
         )
 
-    # Fornecedores vindos do PNCP (contratos).
+    # Fornecedores vindos dos contratos (PNCP e, desde a Etapa 2B, ajustes do
+    # TCE-SP). A fonte real vem da coluna `fonte`, não é mais sempre 'PNCP'.
     for row in conn.execute(
-        "SELECT fornecedor_cnpj, fornecedor_nome, valor FROM contratos "
+        "SELECT fornecedor_cnpj, fornecedor_nome, valor, fonte FROM contratos "
         "WHERE fornecedor_cnpj IS NOT NULL"
     ):
         cnpj = normalizar_cnpj(row["fornecedor_cnpj"])
@@ -322,7 +323,7 @@ def construir_fornecedores(conn: sqlite3.Connection) -> int:
         s["nomes"].append(row["fornecedor_nome"])
         s["n_contratos"] += 1
         s["valor_contratos"] += row["valor"] or 0
-        s["fontes"].add("PNCP")
+        s["fontes"].add(row["fonte"] or "PNCP")
 
     # Fornecedores vindos do TCE (despesas com CNPJ).
     for row in conn.execute(
