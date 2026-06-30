@@ -158,6 +158,28 @@ CREATE TABLE IF NOT EXISTS sancoes_encontradas (
     encontrado_em        TEXT DEFAULT (datetime('now'))
 );
 
+-- Doações de campanha que se ligam a fornecedores/sócios de Barretos.
+CREATE TABLE IF NOT EXISTS doacoes_relacionadas (
+    id                TEXT PRIMARY KEY,  -- hash sintético
+    -- 'socio' (sócio PF doou) ou 'fornecedor' (empresa doou — raro pós-2015).
+    alvo_tipo         TEXT,
+    alvo_cnpj         TEXT,   -- empresa do sócio, ou o fornecedor doador
+    alvo_nome         TEXT,
+    vinculo           TEXT,   -- 'forte' / 'investigar' (sócio) / 'cnpj' (empresa)
+    doador_documento  TEXT,
+    doador_nome       TEXT,
+    -- Donatário (candidato de Barretos que recebeu a doação).
+    candidato         TEXT,
+    cargo             TEXT,
+    partido           TEXT,
+    municipio         TEXT,
+    ano_eleicao       TEXT,
+    valor             REAL,
+    data              TEXT,
+    raw               TEXT,
+    encontrado_em     TEXT DEFAULT (datetime('now'))
+);
+
 """
 
 
@@ -176,6 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_socios_nome ON socios (nome_socio_chave);
 CREATE INDEX IF NOT EXISTS idx_socios_cnpj ON socios (cnpj_socio);
 CREATE INDEX IF NOT EXISTS idx_socios_visivel ON socios (documento_visivel);
 CREATE INDEX IF NOT EXISTS idx_sancoes_alvo ON sancoes_encontradas (alvo_cnpj);
+CREATE INDEX IF NOT EXISTS idx_doacoes_alvo ON doacoes_relacionadas (alvo_cnpj);
 """
 
 

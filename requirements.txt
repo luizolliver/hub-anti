@@ -8,6 +8,9 @@ ruff>=0.5
 networkx>=3.2
 pyvis>=0.3.2
 
+# Doações TSE (Etapa 8) — lê só o membro da UF do ZIP nacional via range requests
+remotezip>=0.12
+
 # Painel (Etapa 10)
 streamlit>=1.36
 

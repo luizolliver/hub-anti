@@ -381,3 +381,41 @@ class Sancao(BaseModel):
             fundamentacao=_coluna(row, "FUNDAMENTACAO LEGAL"),
             raw=row,
         )
+
+
+class Doacao(BaseModel):
+    """
+    Uma doação de campanha (receita de candidato) do TSE — Etapa 8.
+
+    O que interessa: o **doador** (CPF/CNPJ + nome) e o **donatário** (candidato,
+    cargo, município). O CPF do doador-pessoa vem completo no TSE, então casa com
+    sócio pelo núcleo de 6 dígitos + nome (mesma técnica das outras etapas).
+    """
+
+    ano_eleicao: str | None = None
+    municipio: str | None = None  # NM_UE (município do candidato)
+    cargo: str | None = None  # Prefeito / Vereador
+    candidato: str | None = None
+    partido: str | None = None
+    doador_documento: str | None = None  # CPF (11) ou CNPJ (14), só dígitos
+    doador_nome: str | None = None
+    doador_cnae: str | None = None
+    valor: float | None = None
+    data: str | None = None  # ISO
+    raw: dict = Field(default_factory=dict)
+
+    @classmethod
+    def from_tse(cls, row: dict) -> "Doacao":
+        return cls(
+            ano_eleicao=row.get("AA_ELEICAO"),
+            municipio=row.get("NM_UE"),
+            cargo=row.get("DS_CARGO"),
+            candidato=row.get("NM_CANDIDATO"),
+            partido=row.get("SG_PARTIDO"),
+            doador_documento=_so_digitos(row.get("NR_CPF_CNPJ_DOADOR")),
+            doador_nome=row.get("NM_DOADOR"),
+            doador_cnae=row.get("DS_CNAE_DOADOR"),
+            valor=parse_valor_br(row.get("VR_RECEITA")),
+            data=parse_data_br(row.get("DT_RECEITA")),
+            raw=row,
+        )

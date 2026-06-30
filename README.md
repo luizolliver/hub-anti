@@ -75,7 +75,7 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 - [x] **Etapa 5** — Sanções CEIS/CNEP (cruzamento por CNPJ e por CPF-núcleo+nome; idade da empresa). Apenados do TCE: sub-etapa de raspagem adiada
 - [x] **Etapa 6** — Motor de bandeiras vermelhas (`analysis/flags.py`, 1 função pura por regra + agregador)
 - [x] **Etapa 7** — Rede societária (`networkx`: sócio em comum + clusters; export `pyvis` HTML)
-- [ ] Etapa 8 — Doações de campanha (TSE)
+- [x] **Etapa 8** — Doações de campanha TSE (range no zip nacional; doador↔sócio por CPF-núcleo+nome, doador↔fornecedor por CNPJ)
 - [ ] Etapa 9 — Dossiês / relatórios
 - [ ] Etapa 10 — Painel Streamlit
 - [ ] Etapa 11 — Legislativo + monitoramento contínuo
