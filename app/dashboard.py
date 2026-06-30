@@ -34,7 +34,10 @@ import config  # noqa: E402
 from src import consultas  # noqa: E402
 from src.reports.dossie import gerar_html, gerar_markdown, montar_dossie  # noqa: E402
 
-st.set_page_config(page_title="OBSERVATÓRIO // BARRETOS", page_icon="▣", layout="wide")
+st.set_page_config(
+    page_title="OBSERVATÓRIO // BARRETOS", page_icon="▣",
+    layout="wide", initial_sidebar_state="expanded",
+)
 
 # --- CSS: porte do mockup ----------------------------------------------------
 st.markdown(
@@ -54,8 +57,15 @@ st.markdown(
     }
     .stApp{ background: var(--bg); color: var(--txt); }
 
-    /* Esconde o cromo do Streamlit */
-    #MainMenu, footer, header[data-testid="stHeader"]{ visibility:hidden; height:0; }
+    /* Esconde o cromo do Streamlit, MAS mantém o controle de abrir/fechar a
+       barra lateral (senão, recolhida, fica sem botão para reabrir). */
+    #MainMenu, footer, [data-testid="stToolbar"]{ visibility:hidden; height:0; }
+    header[data-testid="stHeader"]{ background:transparent; }
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"]{
+        visibility:visible !important; }
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button{ color:var(--lime) !important; }
     .block-container{ max-width:100% !important; padding:0 22px 40px !important; }
 
     /* Topbar fixa no topo do conteúdo */
