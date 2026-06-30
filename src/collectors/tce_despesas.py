@@ -6,9 +6,10 @@ fornecedor. Diferente do PNCP, aqui o `id_fornecedor` traz o **CNPJ**, o que
 torna esta a fonte primária para cruzar fornecedores nas etapas seguintes.
 
 Estratégia em duas frentes (a 2ª virá quando precisarmos de histórico amplo):
-  1. **API REST** (`/api/json/despesas/{municipio}/{ano}/{mes}`, 2014–2019):
-     rápida, já filtra Barretos pelo slug, ótima para validar o fluxo. É o que
-     este módulo implementa agora.
+  1. **API REST** (`/api/json/despesas/{municipio}/{ano}/{mes}`): rápida, já
+     filtra Barretos pelo slug. Apesar de a documentação citar 2014–2019, na
+     prática responde de **2014 até o ano corrente** (confirmado em 2026) — é o
+     que este módulo usa para o histórico completo.
   2. **CSV anual em massa** (despesas-AAAA.zip, ~2 GB, todo o estado): leitura
      em streaming + filtro de Barretos. Sub-etapa futura (2008→2025).
 
@@ -121,7 +122,7 @@ def _parse_meses(spec: str) -> list[int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Coletor de Despesas do TCE-SP (Barretos).")
-    parser.add_argument("--ano", type=int, default=2019, help="ano (REST cobre 2014–2019)")
+    parser.add_argument("--ano", type=int, default=2019, help="ano (REST cobre 2014 até o atual)")
     parser.add_argument("--meses", default="1", help="ex.: '1', '1-3', '1,6,12'")
     parser.add_argument("--municipio", default=MUNICIPIO_SLUG)
     args = parser.parse_args()
