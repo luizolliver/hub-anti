@@ -180,6 +180,13 @@ CREATE TABLE IF NOT EXISTS doacoes_relacionadas (
     encontrado_em     TEXT DEFAULT (datetime('now'))
 );
 
+-- Estado do monitor: o que já foi alertado, para não repetir.
+CREATE TABLE IF NOT EXISTS monitor_estado (
+    chave     TEXT PRIMARY KEY,   -- ex.: 'contrato:<id>' ou 'fornecedor:<cnpj>:<nivel>'
+    tipo      TEXT,
+    visto_em  TEXT DEFAULT (datetime('now'))
+);
+
 """
 
 

@@ -46,6 +46,22 @@ app/dashboard.py     # painel Streamlit
 tests/               # testes (offline, sobre fixtures salvas)
 ```
 
+## Monitoramento (Etapa 11)
+
+```bash
+python -m src.monitor              # detecta novidades no banco atual e gera data/alerta.md
+python -m src.monitor --coletar    # roda PNCP + sanções antes de detectar
+```
+
+Gera um alerta em Markdown só com o que é **novo** desde a última execução
+(contratos sinalizados e fornecedores que entraram/subiram de nível); o estado
+fica em `monitor_estado`, então rodar de novo não repete. Agende com `cron`
+(Linux), Agendador de Tarefas (Windows) ou GitHub Actions, ex. diário:
+
+```cron
+0 7 * * *  cd /caminho/observatorio && .venv/bin/python -m src.monitor --coletar
+```
+
 ## Roadmap
 
 O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
@@ -78,4 +94,4 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 - [x] **Etapa 8** — Doações de campanha TSE (range no zip nacional; doador↔sócio por CPF-núcleo+nome, doador↔fornecedor por CNPJ)
 - [x] **Etapa 9** — Dossiês (Markdown + HTML sempre; PDF opcional via weasyprint/GTK)
 - [x] **Etapa 10** — Painel Streamlit (tema hacker; consultas puras testadas; `streamlit run app/dashboard.py`)
-- [ ] Etapa 11 — Legislativo + monitoramento contínuo
+- [x] **Etapa 11 (monitoramento)** — atualização incremental + alerta de novidades (`python -m src.monitor --coletar`). Raspagem da Câmara: não feita (opcional)
