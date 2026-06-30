@@ -1,8 +1,10 @@
 """
-Painel do Observatório — Etapa 10 (Streamlit, tema "hacker").
+Painel do Observatório — Etapa 10 (Streamlit, dark developer dashboard).
 
-Interface de terminal verde-sobre-preto para navegar pelos fornecedores de
-Barretos, seu nível de atenção, perfil completo, rede e exportação de dossiê.
+Interface estilo ferramenta de dev (Vercel/Railway/Chutes): fundo quase preto,
+cartões com borda fina, JetBrains Mono, acentos de cor só em indicadores de
+status. Navega pelos fornecedores de Barretos, seu nível de atenção, perfil
+completo, rede e exportação de dossiê.
 
 Toda a lógica de dados está em `src/consultas.py` e `src/reports/dossie.py`
 (testadas). Este arquivo é só apresentação.
@@ -31,45 +33,121 @@ from src.reports.dossie import gerar_html, gerar_markdown, montar_dossie  # noqa
 
 st.set_page_config(page_title="OBSERVATÓRIO // BARRETOS", page_icon="▣", layout="wide")
 
-# --- CSS: terminal verde ----------------------------------------------------
+# --- CSS: dark developer dashboard ------------------------------------------
+# Estética de ferramenta de dev (estilo Vercel/Railway/Chutes): fundo quase
+# preto, cartões #141414 com borda fina, JetBrains Mono, cantos ~3-4px, sem
+# sombras nem gradientes, cores de acento só em indicadores de status.
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-    html, body, [class*="css"], .stApp, .stMarkdown, p, span, div, label, input, td, th {
-        font-family: 'Share Tech Mono', monospace !important;
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+        --bg:#0e0e0e; --card:#141414; --border:#1f1f1f;
+        --text:#e8e8e8; --muted:#555555; --body:#888888;
+        --green:#22c55e; --blue:#3b82f6; --yellow:#eab308; --red:#ef4444;
     }
-    .stApp { background:
-        radial-gradient(circle at 50% 0%, #0d160d 0%, #080b08 70%);
-        color: #00ff41; }
-    h1, h2, h3 { color: #00ff41 !important; text-shadow: 0 0 8px #00ff4180; letter-spacing: 1px; }
-    .term-banner {
-        border: 1px solid #00ff4140; border-left: 3px solid #00ff41;
-        background: #0009; padding: .6rem 1rem; margin-bottom: 1rem;
-        white-space: pre; line-height: 1.1; color: #00ff41; text-shadow: 0 0 6px #00ff4160;
+
+    html, body, [class*="css"], .stApp, .stMarkdown,
+    p, span, div, label, input, td, th, button, [data-baseweb] {
+        font-family: 'JetBrains Mono', monospace !important;
     }
-    .blink { animation: blink 1.1s steps(2, start) infinite; }
-    @keyframes blink { to { visibility: hidden; } }
-    .badge { display:inline-block; border:1px solid #00ff4150; border-radius:3px;
-        padding:1px 6px; margin:2px; font-size:.8rem; color:#9dffb0; }
-    .alert { border-left:3px solid #ff4141; background:#160a0a; color:#ff8a8a;
-        padding:.4rem .8rem; margin:.2rem 0; text-shadow:0 0 6px #ff414140; }
-    .ok { color:#00ff41; }
-    [data-testid="stMetricValue"] { color:#00ff41; text-shadow:0 0 8px #00ff4170; }
-    [data-testid="stMetricLabel"] { color:#5cff8a !important; }
-    section[data-testid="stSidebar"] { background:#060806; border-right:1px solid #00ff4130; }
-    .stDataFrame { border:1px solid #00ff4130; }
-    a, a:visited { color:#41ffff !important; }
+    .stApp { background: var(--bg); color: var(--text); }
+
+    /* Tira o cromo do Streamlit (menu/rodapé/header) */
+    #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+
+    /* Largura cheia, layout denso */
+    .block-container { max-width: 100% !important; padding: 1.1rem 2rem 2.5rem !important; }
+
+    /* Títulos */
+    h1, h2, h3, h4 { color: var(--text) !important; font-weight: 500 !important;
+        letter-spacing: .02em; margin-bottom:.4rem; }
+    .stMarkdown p, .stMarkdown li { color: var(--body); font-size: 13px; }
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
+        color: var(--muted) !important; font-size: 12px; }
+
+    /* Cartões de métrica */
+    [data-testid="stMetric"] {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 4px; padding: 20px; box-shadow: none;
+    }
+    [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {
+        text-transform: uppercase; letter-spacing: .1em;
+        font-size: 11px !important; color: var(--muted) !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 28px !important; font-weight: 500; color: var(--text) !important;
+    }
+
+    /* Botões: contorno fino, texto em caixa alta, hover clareia */
+    .stButton > button, .stDownloadButton > button {
+        background: transparent !important; border: 1px solid #2a2a2a !important;
+        color: #aaaaaa !important; border-radius: 3px !important;
+        text-transform: uppercase; font-size: 11px; letter-spacing: .08em;
+        box-shadow: none !important;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        border-color: #444444 !important; color: #ffffff !important; background: transparent !important;
+    }
+
+    /* Barra lateral */
+    section[data-testid="stSidebar"] { background: #0a0a0a; border-right: 1px solid #1a1a1a; }
+    section[data-testid="stSidebar"] * { color: var(--body); }
+    section[data-testid="stSidebar"] [role="radiogroup"] label { border-radius: 3px; padding:2px 4px; }
+
+    /* Entradas, selects, sliders */
+    .stTextInput input, .stNumberInput input,
+    [data-baseweb="input"], [data-baseweb="select"] > div {
+        background: #111111 !important; border: 1px solid #222222 !important;
+        color: var(--text) !important; border-radius: 3px !important; box-shadow: none !important;
+    }
+    [data-testid="stSlider"] [role="slider"] { background: var(--blue) !important; }
+
+    /* Tabela */
+    [data-testid="stDataFrame"], .stDataFrame {
+        border: 1px solid var(--border); border-radius: 4px; }
+
+    a, a:visited { color: var(--blue) !important; }
+
+    /* Componentes próprios */
+    .dev-header {
+        display:flex; align-items:center; justify-content:space-between;
+        border:1px solid var(--border); background:var(--card);
+        padding:14px 18px; border-radius:4px; margin-bottom:1.2rem;
+    }
+    .dev-header .title { color:var(--text); font-size:15px; font-weight:600; letter-spacing:.04em; }
+    .dev-header .sub { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+    .badge {
+        display:inline-block; border:1px solid #2a2a2a; border-radius:3px;
+        padding:2px 7px; margin:2px; font-size:11px; color:#aaaaaa;
+        text-transform:uppercase; letter-spacing:.05em;
+    }
+    .alert {
+        border:1px solid var(--border); border-left:3px solid var(--red);
+        background:#141414; color:#e0a3a3; padding:8px 12px; margin:4px 0;
+        font-size:13px; border-radius:3px;
+    }
+    /* Indicadores de status: quadradinhos 4x4 (sem bolinhas coloridas) */
+    .sq { display:inline-block; width:4px; height:4px; vertical-align:middle; margin-right:6px; }
+    .sq-green{background:var(--green);} .sq-blue{background:var(--blue);}
+    .sq-yellow{background:var(--yellow);} .sq-red{background:var(--red);} .sq-muted{background:var(--muted);}
+    .ok { color: var(--green); }
+    .mono-dim { color: var(--muted); font-size:12px; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-BANNER = r"""
- ▄▄▄·▄▄▄▄▄ ·▄▄▄▄· ·▄▄▄▄  ·▄▄▄  OBSERVATÓRIO DE CONTRATAÇÕES PÚBLICAS
- ▐█ ▌▪•██   ▐▄▄·▪ ██▪ ██ ▐▄▄·  BARRETOS / SP  ::  follow the money
- ██ ▄▄ ▐█.▪ ██▪  ▐█· ▐█▌ ██▪   indícios rastreáveis, nunca veredito
-"""
+
+def _sq(nivel) -> str:
+    """Quadradinho 4x4 de status conforme o nível de atenção."""
+    try:
+        n = int(nivel)
+    except (TypeError, ValueError):
+        n = 0
+    cor = "green" if n < 3 else "yellow" if n < 6 else "red"
+    return f"<span class='sq sq-{cor}'></span>"
 
 
 @st.cache_resource
@@ -127,7 +205,11 @@ def pagina_ranking(conn):
     st.caption(f"{len(rank)} fornecedores com nível ≥ {minimo}")
     for r in rank:
         cols = st.columns([1, 5, 3, 2])
-        cols[0].markdown(f"### {r['nivel_atencao']}")
+        cols[0].markdown(
+            f"{_sq(r['nivel_atencao'])}<span style='font-size:22px;font-weight:500'>"
+            f"{r['nivel_atencao']}</span>",
+            unsafe_allow_html=True,
+        )
         cols[1].markdown(f"**{r['nome'] or '—'}**  \n`{r['cnpj']}`")
         cols[2].markdown(_badges(r["bandeiras"]), unsafe_allow_html=True)
         if cols[3].button("perfil ▸", key=f"go_{r['cnpj']}"):
@@ -176,7 +258,11 @@ def pagina_perfil(conn):
     nome = emp.get("razao_social") or forn.get("nome") or cnpj
 
     st.markdown(f"## {nome}")
-    st.markdown(f"`{cnpj}`  ·  nível de atenção: **{dados['nivel_atencao']}**")
+    st.markdown(
+        f"`{cnpj}`  ·  {_sq(dados['nivel_atencao'])}"
+        f"nível de atenção: **{dados['nivel_atencao']}**",
+        unsafe_allow_html=True,
+    )
 
     # Bandeiras como alertas.
     if dados["bandeiras"]:
@@ -267,7 +353,13 @@ def pagina_contratos(conn):
 
 # ---------------------------------------------------------------------------
 def main():
-    st.markdown(f"<div class='term-banner'>{BANNER}</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='dev-header'>"
+        "<span class='title'>OBSERVATÓRIO // BARRETOS</span>"
+        "<span class='sub'><span class='sq sq-green'></span>contratações públicas · indícios rastreáveis</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     paginas = {
         "visão geral": pagina_visao_geral,
@@ -277,12 +369,15 @@ def main():
         "contratos": pagina_contratos,
     }
     with st.sidebar:
-        st.markdown("```\n[ SISTEMA ONLINE ]\n```")
-        st.markdown(f"db: `{config.DB_PATH.name}`")
+        st.markdown(
+            "<div class='mono-dim'><span class='sq sq-green'></span>SYSTEM ONLINE</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(f"<div class='mono-dim'>db · {config.DB_PATH.name}</div>", unsafe_allow_html=True)
+        st.markdown("---")
         nav_padrao = st.session_state.get("nav", "visão geral")
         escolha = st.radio("navegação", list(paginas), index=list(paginas).index(nav_padrao))
         st.session_state["nav"] = escolha
-        st.markdown("<span class='blink'>█</span> _aguardando comando_", unsafe_allow_html=True)
         st.caption("indícios sujeitos a apuração — nunca veredito.")
 
     try:
