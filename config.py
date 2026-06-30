@@ -83,3 +83,26 @@ LIMIAR_ADITIVO_PERCENTUAL = 0.25
 
 # Fração do valor total concentrada em poucos fornecedores que dispara bandeira.
 LIMIAR_CONCENTRACAO = 0.50
+
+# --- Limiares das bandeiras adicionais (Parte 2) ----------------------------
+# Empresa "nova" no 1º contrato: idade (abertura → 1º contrato) abaixo disto.
+LIMIAR_EMPRESA_NOVA_CONTRATO_DIAS = 365
+
+# Limites legais 2024 para contratação direta (Lei 14.133/2021, valores
+# atualizados por decreto). Acima destes, a dispensa exige justificativa formal.
+LIMITE_DISPENSA_BENS_SERVICOS = 57208.33   # bens e serviços comuns
+LIMITE_DISPENSA_OBRAS = 114416.66          # obras e serviços de engenharia
+
+# Concentração por órgão/secretaria: fração dos contratos de um órgão, num ano,
+# concentrada num único fornecedor que dispara a bandeira.
+LIMIAR_CONCENTRACAO_SECRETARIA = 0.40
+
+# Fracionamento: nº mínimo de contratos com objeto similar (mesmo prefixo) no
+# mesmo órgão dentro da janela, e o tamanho da janela e do prefixo do objeto.
+FRACIONAMENTO_MIN_CONTRATOS = 3
+FRACIONAMENTO_JANELA_DIAS = 90
+FRACIONAMENTO_PREFIXO_OBJETO = 40
+
+# Sócio em múltiplas fornecedoras: nº mínimo de empresas fornecedoras (incluindo
+# a própria) que compartilham um mesmo sócio para disparar a bandeira.
+SOCIO_MIN_EMPRESAS_FORNECEDORAS = 3

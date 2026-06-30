@@ -13,15 +13,12 @@ dict de dados, testável) → `gerar_html` / `gerar_pdf`.
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 
-import config
-from src.analysis.flags import (
-    concentracao_fornecedor,
-    fornecedor_ou_socio_sancionado,
-    situacao_cadastral_irregular,
-)
-from src.analysis.rede import construir_grafo_do_banco, pares_socio_em_comum
+from src import consultas
+from src.analysis.flags import avaliar_fornecedor
+from src.normalize.entidades import mascarar_cpf
 
 AVISO = (
     "> ⚠️ **Aviso.** Este dossiê reúne *indícios* extraídos de dados públicos "
@@ -53,11 +50,6 @@ def montar_dossie(conn: sqlite3.Connection, cnpj: str) -> dict:
         "WHERE fornecedor_documento = ? GROUP BY evento ORDER BY soma DESC",
         (cnpj,),
     ).fetchall()
-    contratos = g(
-        "SELECT data, modalidade, valor, objeto, orgao FROM contratos "
-        "WHERE fornecedor_cnpj = ? ORDER BY valor DESC LIMIT 20",
-        (cnpj,),
-    ).fetchall()
     socios = g(
         "SELECT nome_socio, qualificacao, tipo_socio FROM socios WHERE cnpj_empresa = ?",
         (cnpj,),
@@ -68,53 +60,46 @@ def montar_dossie(conn: sqlite3.Connection, cnpj: str) -> dict:
         (cnpj,),
     ).fetchall()
     doacoes = g(
-        "SELECT doador_nome, candidato, cargo, partido, valor, data, vinculo "
-        "FROM doacoes_relacionadas WHERE alvo_cnpj = ? ORDER BY valor DESC",
+        "SELECT doador_nome, doador_documento, candidato, cargo, partido, valor, data, "
+        "ano_eleicao, vinculo FROM doacoes_relacionadas WHERE alvo_cnpj = ? ORDER BY valor DESC",
         (cnpj,),
     ).fetchall()
 
-    # Rede: pares com sócio/dona em comum envolvendo este CNPJ.
-    nomes = {r["cnpj"]: r["nome"] for r in g("SELECT cnpj, nome FROM fornecedores")}
-    grafo = construir_grafo_do_banco(conn)
-    pares = [
-        {**p, "outro_cnpj": p["empresa_b"] if p["empresa_a"] == cnpj else p["empresa_a"]}
-        for p in pares_socio_em_comum(grafo)
-        if cnpj in (p["empresa_a"], p["empresa_b"])
-    ]
-    for p in pares:
-        p["outro_nome"] = nomes.get(p["outro_cnpj"])
+    # Contratos individuais, empresas-irmãs e série temporal vêm das consultas.
+    contratos = consultas.contratos_do_fornecedor(conn, cnpj)
+    irmas = consultas.empresas_irmas(conn, cnpj)
+    valor_ano = consultas.valor_por_ano(conn, cnpj)
 
-    # Bandeiras que dá para computar a partir do que temos.
-    total_pago = g("SELECT COALESCE(SUM(valor_pago),0) FROM fornecedores").fetchone()[0]
-    sanc_dicts = [dict(s) for s in sancoes]
-    bandeiras = [
-        b for b in (
-            situacao_cadastral_irregular(
-                empresa["situacao_cadastral"] if empresa else None,
-                empresa["situacao_especial"] if empresa else None,
-            ),
-            fornecedor_ou_socio_sancionado(sanc_dicts),
-            concentracao_fornecedor(
-                fornecedor["valor_pago"] if fornecedor else None,
-                total_pago,
-                limiar_fracao=config.LIMIAR_CONCENTRACAO,
-            ),
-        )
-        if b is not None
-    ]
+    # Bandeiras: fonte ÚNICA de verdade (idêntica ao ranking).
+    avaliacao = avaliar_fornecedor(consultas.contexto_de(conn, cnpj))
+
+    doacoes_fmt = []
+    for d in doacoes:
+        item = dict(d)
+        item["doador_cpf_mascarado"] = mascarar_cpf(d["doador_documento"])
+        doacoes_fmt.append(item)
+
+    n_contratos = g("SELECT COUNT(*) FROM contratos").fetchone()[0]
+    n_fornec = g("SELECT COUNT(*) FROM fornecedores").fetchone()[0]
+    rodape = {
+        "gerado_em": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "versao_banco": f"{n_contratos} contratos · {n_fornec} fornecedores",
+    }
 
     return {
         "cnpj": cnpj,
         "empresa": dict(empresa) if empresa else None,
         "fornecedor": dict(fornecedor) if fornecedor else None,
         "despesas_por_evento": [dict(r) for r in despesas_evento],
-        "contratos": [dict(r) for r in contratos],
+        "contratos": contratos,
+        "valor_por_ano": valor_ano,
         "socios": [dict(r) for r in socios],
-        "sancoes": sanc_dicts,
-        "doacoes": [dict(r) for r in doacoes],
-        "rede": pares,
-        "bandeiras": bandeiras,
-        "nivel_atencao": sum(b.peso for b in bandeiras),
+        "sancoes": [dict(s) for s in sancoes],
+        "doacoes": doacoes_fmt,
+        "irmas": irmas,
+        "bandeiras": avaliacao["bandeiras"],
+        "nivel_atencao": avaliacao["nivel_atencao"],
+        "rodape": rodape,
     }
 
 
@@ -178,17 +163,33 @@ def gerar_markdown(dados: dict) -> str:
         L.append("_Sem despesas registradas para este CNPJ._")
     L.append("")
 
-    # Contratos (PNCP)
-    L.append("## Contratos (PNCP)")
+    # Série temporal
+    va = dados.get("valor_por_ano") or {}
+    if va:
+        L.append("## Valor contratado por ano (TCE-SP)")
+        L.append("| Ano | Valor |")
+        L.append("|---|---:|")
+        for ano in sorted(va):
+            L.append(f"| {ano} | {_moeda(va[ano])} |")
+        L.append("")
+
+    # Contratos individuais
+    L.append("## Contratos individuais")
     cs = dados.get("contratos") or []
     if cs:
-        L.append("| Data | Modalidade | Valor | Objeto |")
-        L.append("|---|---|---:|---|")
+        L.append("| Data | Órgão | Modalidade | Valor | Objeto | Fonte |")
+        L.append("|---|---|---|---:|---|---|")
         for c in cs:
-            obj = (c.get("objeto") or "")[:60]
-            L.append(f"| {c.get('data') or '—'} | {c.get('modalidade') or '—'} | {_moeda(c.get('valor'))} | {obj} |")
+            obj = (c.get("objeto") or "")[:50]
+            L.append(
+                f"| {c.get('data') or '—'} | {(c.get('orgao') or '—')[:28]} | "
+                f"{c.get('modalidade') or '—'} | {_moeda(c.get('valor'))} | {obj} | "
+                f"{c.get('fonte') or '—'} |"
+            )
+        L.append("")
+        L.append(f"_Total de {len(cs)} contrato(s) individual(is)._")
     else:
-        L.append("_Sem contratos vinculados a este CNPJ no PNCP (fornecedor pode estar nulo)._")
+        L.append("_Sem contratos vinculados a este CNPJ._")
     L.append("")
 
     # Sócios
@@ -201,15 +202,19 @@ def gerar_markdown(dados: dict) -> str:
         L.append("_Quadro societário não disponível._")
     L.append("")
 
-    # Rede
-    L.append("## Rede societária")
-    rede = dados.get("rede") or []
-    if rede:
-        for p in rede:
-            L.append(f"- Elo **{p.get('nivel')}** com {p.get('outro_nome') or p.get('outro_cnpj')} "
-                     f"(via {p.get('elo')})")
+    # Rede societária — empresas irmãs (mesmo sócio)
+    L.append("## Rede societária (empresas irmãs)")
+    irmas = dados.get("irmas") or []
+    if irmas:
+        L.append("| Empresa | CNPJ | Valor recebido | Sócio em comum |")
+        L.append("|---|---|---:|---|")
+        for p in irmas:
+            L.append(
+                f"| {(p.get('nome') or '—')[:34]} | {p.get('cnpj')} | "
+                f"{_moeda(p.get('valor'))} | {p.get('socio_comum') or '—'} |"
+            )
     else:
-        L.append("_Nenhum elo de sócio/dona em comum detectado._")
+        L.append("_Nenhuma empresa irmã (sócio em comum) entre as fornecedoras._")
     L.append("")
 
     # Sanções
@@ -228,20 +233,39 @@ def gerar_markdown(dados: dict) -> str:
     L.append("## Doações de campanha (TSE)")
     doacoes = dados.get("doacoes") or []
     if doacoes:
+        L.append("| Doador | CPF | Candidato | Cargo | Ano | Valor | Vínculo |")
+        L.append("|---|---|---|---|---|---:|---|")
         for d in doacoes:
-            L.append(f"- {d.get('doador_nome')} doou {_moeda(d.get('valor'))} para "
-                     f"**{d.get('candidato')}** ({d.get('cargo')}/{d.get('partido') or '—'}) "
-                     f"em {d.get('data') or '—'} [{d.get('vinculo')}]")
+            L.append(
+                f"| {(d.get('doador_nome') or '—')[:28]} | "
+                f"{d.get('doador_cpf_mascarado') or '—'} | "
+                f"{(d.get('candidato') or '—')[:24]} | {d.get('cargo') or '—'} | "
+                f"{d.get('ano_eleicao') or '—'} | {_moeda(d.get('valor'))} | "
+                f"{d.get('vinculo') or '—'} |"
+            )
     else:
         L.append("_Nenhuma doação relacionada._")
     L.append("")
 
     # Fontes
-    L.append("## Fontes")
+    L.append("## Fontes consultadas")
     for nome_fonte, url in FONTES.items():
         L.append(f"- {nome_fonte}: {url}")
     L.append("")
-    L.append("_Dossiê gerado automaticamente pelo Observatório de Contratações de Barretos._")
+
+    # Rodapé com metadados e aviso legal explícito.
+    rodape = dados.get("rodape") or {}
+    L.append("---")
+    L.append(
+        f"**Documento gerado em:** {rodape.get('gerado_em', '—')}  "
+    )
+    L.append(f"**Versão do banco:** {rodape.get('versao_banco', '—')}")
+    L.append("")
+    L.append(
+        "> **Aviso legal.** Este documento contém indícios sujeitos a apuração. "
+        "Não constitui prova de ilícito. Todas as informações têm fonte oficial "
+        "identificada. Casamentos por nome/CPF parcial podem conter homônimos."
+    )
 
     return "\n".join(L)
 

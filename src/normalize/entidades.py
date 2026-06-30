@@ -143,6 +143,22 @@ def digitos_visiveis(documento: str | None) -> str | None:
     return d or None
 
 
+def mascarar_cpf(documento: str | None) -> str | None:
+    """
+    Formata um CPF para exibição mascarada: '***.234.078-**' (esconde os 3
+    primeiros e os 2 últimos dígitos, mostra os 6 do meio). Aceita CPF completo
+    (11 díg.) ou já mascarado (6 díg. visíveis). None se não der para formatar.
+    """
+    d = re.sub(r"\D", "", documento or "")
+    if len(d) == 11:
+        meio = d[3:9]
+    elif len(d) == 6:
+        meio = d
+    else:
+        return None
+    return f"***.{meio[:3]}.{meio[3:]}-**"
+
+
 def idade_empresa_meses(data_inicio_iso: str | None, data_ref_iso: str | None) -> int | None:
     """
     Idade da empresa, em meses inteiros, entre a abertura (`data_inicio_atividade`)

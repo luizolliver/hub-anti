@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import sqlite3  # noqa: E402
 
+import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 import config  # noqa: E402
@@ -168,6 +169,17 @@ def _badges(codigos) -> str:
     return " ".join(f"<span class='badge'>{c}</span>" for c in codigos)
 
 
+def _link_pncp(c: dict) -> str | None:
+    """URL pública do contrato no PNCP, quando a fonte é PNCP."""
+    if (c.get("fonte") or "") != "PNCP" or not c.get("id_origem"):
+        return None
+    partes = str(c["id_origem"]).strip("/").split("/")
+    # espera ['contratos', CNPJ, ANO, SEQ]
+    if len(partes) >= 4 and partes[0] == "contratos":
+        return f"https://pncp.gov.br/app/contratos/{partes[1]}/{partes[2]}/{partes[3]}"
+    return "https://pncp.gov.br"
+
+
 # ---------------------------------------------------------------------------
 # Páginas
 # ---------------------------------------------------------------------------
@@ -178,7 +190,7 @@ def pagina_visao_geral(conn):
     c1.metric("fornecedores", f"{m['fornecedores']:,}")
     c2.metric("empresas (QSA)", f"{m['empresas_enriquecidas']:,}")
     c3.metric("R$ pago (TCE)", _moeda(m["total_pago"]))
-    c4.metric("contratos (PNCP)", f"{m['contratos']:,}")
+    c4.metric("contratos", f"{m['contratos']:,}")
     c5, c6, c7, c8 = st.columns(4)
     c5.metric("despesas", f"{m['despesas']:,}")
     c6.metric("sócios", f"{m['socios']:,}")
@@ -190,11 +202,24 @@ def pagina_visao_geral(conn):
     if rank:
         st.dataframe(
             [{"nível": r["nivel_atencao"], "cnpj": r["cnpj"], "fornecedor": r["nome"],
-              "R$ pago": r["valor_pago"], "bandeiras": ", ".join(r["bandeiras"])} for r in rank],
+              "R$ recebido": _moeda(r["valor_pago"]), "bandeiras": ", ".join(r["bandeiras"])} for r in rank],
             width="stretch", hide_index=True,
         )
     else:
         st.info("sem bandeiras ainda — rode os coletores e o enriquecimento (Etapas 4/5).")
+
+    # Painel de monitor: contratos recentes que já têm bandeira (Parte 5).
+    st.markdown("#### ⚠ alertas recentes (últimos 90 dias)")
+    alertas = consultas.alertas_recentes(conn, dias=90)
+    if alertas:
+        st.caption(f"{len(alertas)} contrato(s) recente(s) com fornecedor já sinalizado.")
+        st.dataframe(
+            [{"data": a["data"], "fornecedor": a["fornecedor"], "órgão": a["orgao"],
+              "valor": _moeda(a["valor"]), "bandeiras": ", ".join(a["bandeiras"])} for a in alertas],
+            width="stretch", hide_index=True,
+        )
+    else:
+        st.caption("nenhum contrato assinado nos últimos 90 dias com bandeira ativa.")
 
 
 def pagina_ranking(conn):
@@ -220,30 +245,59 @@ def pagina_ranking(conn):
 
 def pagina_buscar(conn):
     st.subheader("▣ buscar")
-    termo = st.text_input("empresa, CNPJ ou pessoa", placeholder="> digite e tecle enter")
+    modo = st.radio(
+        "modo de busca", ["fornecedor", "objeto de contrato", "sócio (CPF ou nome)"],
+        horizontal=True,
+    )
+    termo = st.text_input("termo", placeholder="> digite e tecle enter")
     if not termo:
         return
-    fns = consultas.buscar_fornecedores(conn, termo)
-    if fns:
-        st.markdown("#### fornecedores")
+
+    if modo == "fornecedor":
+        fns = consultas.buscar_fornecedores(conn, termo)
+        if not fns:
+            st.warning("nenhum fornecedor encontrado.")
         for f in fns:
             cols = st.columns([6, 3, 2])
             cols[0].markdown(f"**{f['nome'] or '—'}**  \n`{f['cnpj']}`")
-            cols[1].markdown(f"pago: {_moeda(f['valor_pago'])}")
+            cols[1].markdown(f"recebido: {_moeda(f['valor_pago'])}")
             if cols[2].button("perfil ▸", key=f"b_{f['cnpj']}"):
                 st.session_state["cnpj"] = f["cnpj"]
                 st.session_state["nav"] = "perfil"
                 st.rerun()
-    pessoas = consultas.buscar_pessoas(conn, termo)
-    if pessoas:
-        st.markdown("#### pessoas (sócios)")
-        st.dataframe(
-            [{"nome": p["nome_socio"], "empresa (cnpj)": p["cnpj_empresa"],
-              "qualificação": p["qualificacao"], "cpf*": p["documento_visivel"]} for p in pessoas],
-            width="stretch", hide_index=True,
-        )
-    if not fns and not pessoas:
-        st.warning("nada encontrado.")
+
+    elif modo == "objeto de contrato":
+        contratos = consultas.buscar_por_objeto(conn, termo)
+        if not contratos:
+            st.warning("nenhum contrato com esse objeto.")
+        else:
+            st.caption(f"{len(contratos)} contrato(s) com objeto contendo “{termo}”.")
+            st.dataframe(
+                [{"data": c["data"], "órgão": c["orgao"], "modalidade": c["modalidade"],
+                  "valor": _moeda(c["valor"]), "fornecedor": c["fornecedor_nome"],
+                  "objeto": (c["objeto"] or "")[:90]} for c in contratos],
+                width="stretch", hide_index=True,
+            )
+
+    else:  # sócio
+        pessoas = consultas.buscar_socios(conn, termo)
+        if not pessoas:
+            st.warning("nenhum sócio encontrado entre as empresas fornecedoras.")
+        for p in pessoas:
+            cpf = p.get("documento_visivel")
+            st.markdown(
+                f"**{p['nome'] or '—'}**  ·  cpf parcial: `{cpf or '—'}`  ·  "
+                f"{len(p['empresas'])} empresa(s) · total {_moeda(p['total'])}"
+            )
+            for e in p["empresas"]:
+                cols = st.columns([6, 3, 2])
+                cols[0].markdown(f"&nbsp;&nbsp;↳ {e['nome'] or '—'}  \n&nbsp;&nbsp;`{e['cnpj']}`",
+                                 unsafe_allow_html=True)
+                cols[1].markdown(_moeda(e["valor"]))
+                if cols[2].button("perfil ▸", key=f"s_{p.get('documento_visivel')}_{e['cnpj']}"):
+                    st.session_state["cnpj"] = e["cnpj"]
+                    st.session_state["nav"] = "perfil"
+                    st.rerun()
 
 
 def pagina_perfil(conn):
@@ -296,36 +350,61 @@ def pagina_perfil(conn):
         st.markdown("#### dinheiro recebido (TCE)")
         if dados["despesas_por_evento"]:
             st.dataframe(
-                [{"evento": r["evento"], "linhas": r["n"], "valor": r["soma"]}
+                [{"evento": r["evento"], "linhas": r["n"], "valor": _moeda(r["soma"])}
                  for r in dados["despesas_por_evento"]],
                 width="stretch", hide_index=True,
             )
         else:
             st.caption("sem despesas.")
-        st.markdown("#### rede societária")
-        if dados["rede"]:
-            for p in dados["rede"]:
-                st.write(f"- elo **{p['nivel']}** com {p.get('outro_nome') or p.get('outro_cnpj')} (via {p['elo']})")
+        # Série temporal: valor contratado por ano (revela picos eleitorais).
+        va = dados.get("valor_por_ano") or {}
+        if va:
+            st.markdown("#### valor contratado por ano")
+            st.bar_chart(pd.DataFrame({"valor": list(va.values())}, index=list(va.keys())))
+        st.markdown("#### rede societária (empresas irmãs)")
+        irmas = dados.get("irmas") or []
+        if irmas:
+            st.dataframe(
+                [{"empresa": p["nome"], "cnpj": p["cnpj"], "R$ recebido": _moeda(p["valor"]),
+                  "sócio em comum": p["socio_comum"]} for p in irmas],
+                width="stretch", hide_index=True,
+            )
         else:
-            st.caption("sem elos.")
+            st.caption("sem empresas irmãs (nenhum sócio em comum).")
+
+    # Contratos individuais (Parte 3.1).
+    st.markdown("#### contratos individuais")
+    cs = dados.get("contratos") or []
+    if cs:
+        st.caption(f"{len(cs)} contrato(s).")
+        st.dataframe(
+            [{"data": c["data"], "órgão": c["orgao"], "modalidade": c["modalidade"],
+              "valor": _moeda(c["valor"]), "objeto": (c["objeto"] or "")[:80],
+              "fonte": c["fonte"], "PNCP": _link_pncp(c) or ""} for c in cs],
+            width="stretch", hide_index=True,
+            column_config={"PNCP": st.column_config.LinkColumn("PNCP", display_text="abrir")},
+        )
+    else:
+        st.caption("sem contratos vinculados a este CNPJ.")
 
     st.markdown("#### sanções")
     if dados["sancoes"]:
         st.dataframe(
-            [{"fonte": s["fonte"], "categoria": s["categoria"], "início": s["data_inicio"],
-              "fim": s["data_fim"], "órgão": s["orgao_sancionador"], "vínculo": s["vinculo"]}
+            [{"fonte": s["fonte"], "categoria": s["categoria"],
+              "nome sancionado": s.get("nome_sancionado"), "vínculo": s["vinculo"]}
              for s in dados["sancoes"]],
             width="stretch", hide_index=True,
         )
     else:
         st.caption("sem sanções cruzadas.")
 
-    st.markdown("#### doações relacionadas")
+    st.markdown("#### doações relacionadas (TSE)")
     if dados["doacoes"]:
         st.dataframe(
-            [{"doador": d["doador_nome"], "candidato": d["candidato"], "cargo": d["cargo"],
-              "valor": d["valor"], "data": d["data"], "vínculo": d["vinculo"]}
-             for d in dados["doacoes"]],
+            [{"doador": d["doador_nome"], "CPF": d.get("doador_cpf_mascarado") or "—",
+              "candidato": d["candidato"], "cargo": d["cargo"],
+              "eleição": d.get("ano_eleicao"), "valor": _moeda(d["valor"]),
+              "fonte": "TSE"} for d in dados["doacoes"]],
             width="stretch", hide_index=True,
         )
     else:
@@ -339,16 +418,37 @@ def pagina_perfil(conn):
 
 
 def pagina_contratos(conn):
-    st.subheader("▣ contratos (PNCP)")
-    contratos = consultas.listar_contratos(conn, limite=200)
+    st.subheader("▣ contratos")
+    # Filtros (Bug 3).
+    mods = ["(todas)"] + consultas.modalidades(conn)
+    orgs = ["(todos)"] + consultas.orgaos(conn)
+    f1, f2 = st.columns(2)
+    modalidade = f1.selectbox("modalidade", mods)
+    orgao = f2.selectbox("órgão", orgs)
+    f3, f4, f5 = st.columns(3)
+    valor_min = f3.number_input("valor mínimo (R$)", min_value=0.0, value=0.0, step=1000.0)
+    data_ini = f4.text_input("de (AAAA-MM-DD)", value="")
+    data_fim = f5.text_input("até (AAAA-MM-DD)", value="")
+
+    contratos = consultas.listar_contratos(
+        conn, limite=500,
+        modalidade=None if modalidade == "(todas)" else modalidade,
+        orgao=None if orgao == "(todos)" else orgao,
+        valor_min=valor_min or None,
+        data_ini=data_ini.strip() or None,
+        data_fim=data_fim.strip() or None,
+    )
+    st.caption(f"{len(contratos)} contrato(s).")
     if contratos:
         st.dataframe(
-            [{"data": c["data"], "órgão": c["orgao"], "modalidade": c["modalidade"],
-              "valor": c["valor"], "objeto": (c["objeto"] or "")[:80]} for c in contratos],
+            [{"data": c["data"], "órgão": c["orgao"], "objeto": (c["objeto"] or "")[:80],
+              "modalidade": c["modalidade"], "valor": _moeda(c["valor"]),
+              "fornecedor": c["fornecedor_nome"] or "—", "fonte": c["fonte"]}
+             for c in contratos],
             width="stretch", hide_index=True,
         )
     else:
-        st.info("sem contratos (rode a Etapa 1).")
+        st.info("nenhum contrato com esses filtros.")
 
 
 # ---------------------------------------------------------------------------

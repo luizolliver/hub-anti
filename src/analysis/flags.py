@@ -16,6 +16,8 @@ testadas — basta alimentá-las quando a Etapa 2B/itens chegar.
 
 from __future__ import annotations
 
+import datetime
+
 import config
 from src.models import Bandeira
 from src.normalize.entidades import idade_empresa_meses
@@ -31,7 +33,38 @@ PESOS = {
     "ADITIVO_ELEVADO": 3,
     "SOBREPRECO": 4,
     "FIM_DE_EXERCICIO": 1,
+    # Bandeiras adicionais (Parte 2), de nível de fornecedor.
+    "EMPRESA_NOVA_NO_CONTRATO": 3,
+    "DISPENSA_ACIMA_LIMITE": 3,
+    "ENTIDADE_SEM_FINS_LUCRATIVOS_SEM_LICITACAO": 4,
+    "CONCENTRACAO_POR_SECRETARIA": 2,
+    "MULTIPLOS_CONTRATOS_OBJETO_SIMILAR": 4,
+    "SOCIO_MULTIPLAS_EMPRESAS_FORNECEDORAS": 3,
 }
+
+
+def _data(iso: str | None) -> datetime.date | None:
+    """Converte 'AAAA-MM-DD' em date, tolerante. None se vazio/inválido."""
+    if not iso or len(iso) < 10:
+        return None
+    try:
+        return datetime.date.fromisoformat(iso[:10])
+    except ValueError:
+        return None
+
+
+def _eh_contratacao_direta(modalidade: str | None) -> bool:
+    """True se a modalidade é dispensa/inexigibilidade/contratação direta."""
+    m = (modalidade or "").lower()
+    return "dispensa" in m or "inexigib" in m or "direta" in m
+
+
+def _eh_obra(objeto: str | None) -> bool:
+    """Heurística simples: o objeto parece obra/serviço de engenharia?"""
+    o = (objeto or "").lower()
+    termos = ("obra", "pavimenta", "construç", "construc", "reforma", "engenharia",
+              "recapeament", "drenagem", "edificaç", "edificac", "terraplan")
+    return any(t in o for t in termos)
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +246,230 @@ def fim_de_exercicio(data_contrato: str | None) -> Bandeira | None:
 
 
 # ---------------------------------------------------------------------------
-# Agregador
+# Bandeiras de nível de fornecedor (Parte 2) — operam sobre o conjunto de
+# contratos do fornecedor e seu cadastro, não sobre um contrato isolado.
+# ---------------------------------------------------------------------------
+def empresa_nova_no_contrato(
+    data_abertura: str | None,
+    contratos: list[dict] | None,
+    limiar_dias: int = config.LIMIAR_EMPRESA_NOVA_CONTRATO_DIAS,
+) -> Bandeira | None:
+    """Empresa constituída há menos de `limiar_dias` na data do 1º contrato."""
+    abertura = _data(data_abertura)
+    datas = sorted(d for d in (_data(c.get("data")) for c in (contratos or [])) if d)
+    if not abertura or not datas:
+        return None
+    primeiro = datas[0]
+    dias = (primeiro - abertura).days
+    if dias < 0 or dias >= limiar_dias:
+        return None
+    return Bandeira(
+        codigo="EMPRESA_NOVA_NO_CONTRATO",
+        descricao="Empresa constituída há menos de 1 ano na data do primeiro contrato com o município",
+        evidencia={
+            "data_abertura": data_abertura,
+            "data_primeiro_contrato": primeiro.isoformat(),
+            "dias": dias,
+        },
+        peso=PESOS["EMPRESA_NOVA_NO_CONTRATO"],
+    )
+
+
+def dispensa_acima_limite(contratos: list[dict] | None) -> Bandeira | None:
+    """
+    Contratação direta (dispensa/inexigibilidade) com valor acima do limite
+    legal (R$ 57.208,33 bens/serviços; R$ 114.416,66 obras — valores 2024).
+    """
+    pior = None
+    for c in contratos or []:
+        if not _eh_contratacao_direta(c.get("modalidade")):
+            continue
+        valor = c.get("valor") or 0
+        limite = config.LIMITE_DISPENSA_OBRAS if _eh_obra(c.get("objeto")) else config.LIMITE_DISPENSA_BENS_SERVICOS
+        if valor > limite and (pior is None or valor > pior[0]):
+            pior = (valor, limite, c)
+    if not pior:
+        return None
+    valor, limite, c = pior
+    return Bandeira(
+        codigo="DISPENSA_ACIMA_LIMITE",
+        descricao=(
+            "Contratação direta (dispensa/inexigibilidade) com valor acima do "
+            "limite legal — exige justificativa formal"
+        ),
+        evidencia={
+            "modalidade": c.get("modalidade"),
+            "valor": round(valor, 2),
+            "limite_vigente": limite,
+            "objeto": (c.get("objeto") or "")[:80],
+            "data": c.get("data"),
+        },
+        peso=PESOS["DISPENSA_ACIMA_LIMITE"],
+    )
+
+
+def entidade_sem_fins_sem_licitacao(
+    natureza_juridica: str | None, contratos: list[dict] | None
+) -> Bandeira | None:
+    """Entidade sem fins lucrativos (associação/fundação/OSCIP) contratada sem licitação."""
+    nat = (natureza_juridica or "").lower()
+    sem_fins = any(t in nat for t in ("associa", "fundaç", "fundac", "oscip", "sem fins", "organização social", "organizacao social"))
+    if not sem_fins:
+        return None
+    direto = next((c for c in (contratos or []) if _eh_contratacao_direta(c.get("modalidade"))), None)
+    if not direto:
+        return None
+    return Bandeira(
+        codigo="ENTIDADE_SEM_FINS_LUCRATIVOS_SEM_LICITACAO",
+        descricao=(
+            "Entidade sem fins lucrativos contratada sem processo licitatório — "
+            "comum em repasses irregulares via convênio"
+        ),
+        evidencia={
+            "natureza_juridica": natureza_juridica,
+            "modalidade": direto.get("modalidade"),
+            "objeto": (direto.get("objeto") or "")[:80],
+            "valor": direto.get("valor"),
+        },
+        peso=PESOS["ENTIDADE_SEM_FINS_LUCRATIVOS_SEM_LICITACAO"],
+    )
+
+
+def concentracao_por_secretaria(
+    contratos: list[dict] | None,
+    totais_orgao_ano: dict | None,
+    limiar_fracao: float = config.LIMIAR_CONCENTRACAO_SECRETARIA,
+) -> Bandeira | None:
+    """
+    Fornecedor concentra > limiar do valor contratado por um único órgão num ano.
+
+    `totais_orgao_ano` mapeia (orgao, ano) -> {'total': float, 'n': int} sobre
+    TODOS os fornecedores. Para evitar ruído (órgão-ano com 1 só contrato),
+    exige pelo menos 3 contratos no grupo.
+    """
+    if not contratos or not totais_orgao_ano:
+        return None
+    por_grupo: dict[tuple, float] = {}
+    for c in contratos:
+        chave = (c.get("orgao"), c.get("ano"))
+        por_grupo[chave] = por_grupo.get(chave, 0.0) + (c.get("valor") or 0)
+    pior = None
+    for chave, valor_forn in por_grupo.items():
+        info = totais_orgao_ano.get(chave)
+        if not info or info["total"] <= 0 or info["n"] < 3:
+            continue
+        fracao = valor_forn / info["total"]
+        if fracao >= limiar_fracao and (pior is None or fracao > pior[0]):
+            pior = (fracao, chave, valor_forn, info)
+    if not pior:
+        return None
+    fracao, (orgao, ano), valor_forn, info = pior
+    return Bandeira(
+        codigo="CONCENTRACAO_POR_SECRETARIA",
+        descricao=(
+            f"Fornecedor concentra {fracao:.0%} dos contratos de {orgao} no ano "
+            f"{ano} — possível direcionamento ou dependência"
+        ),
+        evidencia={
+            "orgao": orgao, "ano": ano, "fracao": round(fracao, 4),
+            "valor_fornecedor": round(valor_forn, 2),
+            "valor_orgao_ano": round(info["total"], 2),
+            "contratos_no_orgao_ano": info["n"],
+        },
+        peso=PESOS["CONCENTRACAO_POR_SECRETARIA"],
+    )
+
+
+def multiplos_contratos_objeto_similar(
+    contratos: list[dict] | None,
+    min_contratos: int = config.FRACIONAMENTO_MIN_CONTRATOS,
+    janela_dias: int = config.FRACIONAMENTO_JANELA_DIAS,
+    prefixo: int = config.FRACIONAMENTO_PREFIXO_OBJETO,
+) -> Bandeira | None:
+    """
+    3+ contratos com o mesmo órgão e objeto similar (mesmo prefixo) numa janela
+    de `janela_dias` — indício clássico de fracionamento de despesa.
+    """
+    grupos: dict[tuple, list] = {}
+    for c in contratos or []:
+        d = _data(c.get("data"))
+        obj = (c.get("objeto") or "").strip().lower()[:prefixo]
+        if not d or not obj:
+            continue
+        grupos.setdefault((c.get("orgao"), obj), []).append((d, c))
+    for (orgao, obj), itens in grupos.items():
+        if len(itens) < min_contratos:
+            continue
+        datas = sorted(d for d, _ in itens)
+        # janela deslizante: existe alguma janela com min_contratos datas?
+        for i in range(len(datas) - min_contratos + 1):
+            if (datas[i + min_contratos - 1] - datas[i]).days <= janela_dias:
+                return Bandeira(
+                    codigo="MULTIPLOS_CONTRATOS_OBJETO_SIMILAR",
+                    descricao=(
+                        "Múltiplos contratos com objeto similar em curto período — "
+                        "possível fracionamento para evitar licitação"
+                    ),
+                    evidencia={
+                        "orgao": orgao,
+                        "objeto_prefixo": obj,
+                        "qtde": len(itens),
+                        "janela_dias": (datas[i + min_contratos - 1] - datas[i]).days,
+                        "primeira_data": datas[i].isoformat(),
+                    },
+                    peso=PESOS["MULTIPLOS_CONTRATOS_OBJETO_SIMILAR"],
+                )
+    return None
+
+
+def socio_multiplas_empresas_fornecedoras(
+    n_empresas_fornecedoras: int | None,
+    minimo: int = config.SOCIO_MIN_EMPRESAS_FORNECEDORAS,
+) -> Bandeira | None:
+    """Um sócio aparece em `minimo`+ empresas que contratam com a prefeitura."""
+    n = n_empresas_fornecedoras or 0
+    if n < minimo:
+        return None
+    return Bandeira(
+        codigo="SOCIO_MULTIPLAS_EMPRESAS_FORNECEDORAS",
+        descricao=(
+            f"Sócio em comum a {n} empresas fornecedoras do município — "
+            "possível grupo econômico atuando como concorrentes"
+        ),
+        evidencia={"empresas_fornecedoras": n},
+        peso=PESOS["SOCIO_MULTIPLAS_EMPRESAS_FORNECEDORAS"],
+    )
+
+
+def avaliar_fornecedor(ctx: dict) -> dict:
+    """
+    Agrega TODAS as bandeiras de nível de fornecedor a partir de um contexto já
+    montado (fonte única de verdade, usada pelo ranking e pelo dossiê).
+
+    `ctx` esperado:
+        situacao_cadastral, situacao_especial, natureza_juridica,
+        data_inicio_atividade, sancoes (list), valor_pago, total_pago,
+        contratos (list de {data, modalidade, valor, objeto, orgao, ano}),
+        totais_orgao_ano (dict), n_empresas_irmas_fornecedoras (int)
+    """
+    contratos = ctx.get("contratos") or []
+    candidatas = [
+        situacao_cadastral_irregular(ctx.get("situacao_cadastral"), ctx.get("situacao_especial")),
+        fornecedor_ou_socio_sancionado(ctx.get("sancoes")),
+        concentracao_fornecedor(ctx.get("valor_pago"), ctx.get("total_pago")),
+        empresa_nova_no_contrato(ctx.get("data_inicio_atividade"), contratos),
+        dispensa_acima_limite(contratos),
+        entidade_sem_fins_sem_licitacao(ctx.get("natureza_juridica"), contratos),
+        concentracao_por_secretaria(contratos, ctx.get("totais_orgao_ano")),
+        multiplos_contratos_objeto_similar(contratos),
+        socio_multiplas_empresas_fornecedoras(ctx.get("n_empresas_irmas_fornecedoras")),
+    ]
+    bandeiras = [b for b in candidatas if b is not None]
+    return {"bandeiras": bandeiras, "nivel_atencao": sum(b.peso for b in bandeiras)}
+
+
+# ---------------------------------------------------------------------------
+# Agregador (nível de contrato)
 # ---------------------------------------------------------------------------
 def avaliar(contrato: dict, contexto: dict | None = None) -> dict:
     """
