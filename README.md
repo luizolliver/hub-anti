@@ -76,7 +76,16 @@ O desenvolvimento segue o `blueprint-observatorio-barretos.md`, etapa por etapa
 > PNCP podem ficar com fornecedor nulo até o cruzamento com o TCE.
 
 - [x] **Etapa 2A** — Despesas TCE-SP (API REST 2014–2019; fonte primária do fornecedor)
-- [ ] Etapa 2B — Licitações/Contratos TCE-SP (cubo Fase IV) + CSV em massa
+- [x] **Etapa 2B** — Ajustes/Contratos TCE-SP (Cubo Audesp Fase IV, 2018–2024; lado-contrato com CNPJ do fornecedor)
+
+> **Escopo da Etapa 2B:** o arquivo de *Ajustes* é o lado-**contrato** do TCE e
+> traz o fornecedor contratado (CNPJ + nome). O coletor **raspa** os ZIPs do
+> portal de Dados Abertos (nomes irregulares), filtra Barretos pela coluna
+> `Município` e deduplica pelo **Código do Ajuste**. Para ajustes cujo
+> instrumento é *Nota de Empenho* (sem nº/valor/assinatura de contrato), o valor
+> e a data vêm da própria nota. Mesmo agora, o join PNCP↔TCE de *contratos*
+> segue limitado: a search API do PNCP não traz fornecedor e os ajustes não
+> trazem o CNPJ do órgão — falta uma chave forte compartilhada.
 - [x] **Etapa 3** — Resolução de entidades (normalização CNPJ/CPF/nome, tabela `fornecedores`, reconciliação)
 
 > **Escopo honesto da Etapa 3:** a tabela `fornecedores` é construída sobretudo a

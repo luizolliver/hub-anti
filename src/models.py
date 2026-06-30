@@ -138,6 +138,56 @@ class Contrato(BaseModel):
             raw=item,
         )
 
+    @classmethod
+    def from_tce_ajuste(cls, row: dict, municipio_ibge: str | None = None) -> "Contrato":
+        """
+        Constrói um Contrato a partir de uma linha do arquivo de **Ajustes** do
+        Cubo Audesp Fase IV do TCE-SP (Etapa 2B). É o lado-contrato do TCE, que
+        — ao contrário das despesas — traz o fornecedor contratado (CNPJ + nome).
+
+        Chave canônica: o **Código do Ajuste** (identificador único do contrato
+        no TCE). Os arquivos vêm em nível de item; a deduplicação por esse código
+        é responsabilidade do coletor (`parsear_ajustes`).
+
+        Particularidades do arquivo (dados reais, irregulares):
+          - O CNPJ vem formatado ('05.808.979/0001-42') -> só dígitos.
+          - Em ajustes cujo instrumento é "Nota de Empenho", as colunas de
+            contrato (nº/valor/assinatura) vêm vazias; nesses casos caímos para
+            o valor/data da própria nota de empenho, que é o instrumento do
+            ajuste. Honesto: o valor sai do que de fato vincula aquele ajuste.
+        """
+        codigo = (_coluna(row, "Código do Ajuste") or "").strip()
+        valor = parse_valor_br(_coluna(row, "Valor total do contrato")) or parse_valor_br(
+            _coluna(row, "Valor da Nota de Empenho")
+        )
+        data = parse_data_br(_coluna(row, "Vigência do contrato - Data Assinatura")) or parse_data_br(
+            _coluna(row, "Data da Nota de Empenho")
+        )
+        ano = _coluna(row, "Ano do contrato") or _coluna(row, "Ano do processo licitatório")
+        objeto = (
+            _coluna(row, "Descrição do objeto contratado")
+            or _coluna(row, "Descrição do objeto da licitação")
+            or _coluna(row, "Objeto da licitação")
+        )
+        return cls(
+            id=f"TCE-{codigo}",
+            fonte="TCE-SP",
+            id_origem=codigo or None,
+            orgao=_coluna(row, "Entidade"),
+            orgao_cnpj=None,  # o arquivo de ajustes não traz o CNPJ do órgão
+            objeto=objeto,
+            modalidade=_coluna(row, "Modalidade de licitação"),
+            fornecedor_cnpj=_so_digitos(_coluna(row, "CNPJ da empresa contratada")),
+            fornecedor_nome=_coluna(row, "Nome da empresa contratada"),
+            valor=valor,
+            data=data,
+            ano=str(ano) if ano else None,
+            municipio_ibge=municipio_ibge,
+            municipio_nome=_coluna(row, "Município"),
+            uf="SP",  # todo o Cubo Audesp é do estado de São Paulo
+            raw=row,
+        )
+
 
 class Despesa(BaseModel):
     """

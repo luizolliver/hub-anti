@@ -26,12 +26,14 @@ Duas premissas de design importantes (baratas agora, dolorosas depois):
     (forte/provável/investigar). Reaparece na Etapa 7 (rede) e 8 (doações).
 
   * **Escopo atual da reconciliação.** `reconciliar_contratos` mescla
-    contrato↔contrato entre fontes. Hoje o lado-TCE de *contratos* ainda não
-    existe (isso é a Etapa 2B); temos apenas *despesas* (pagamentos), que NÃO
-    são contratos e não fecham um join limpo contrato↔fornecedor (exigiria
-    casar por empenho). Por isso a tabela `fornecedores` é construída sobretudo
-    a partir das **despesas do TCE** (que já trazem CNPJ). O vínculo completo
-    contrato-PNCP↔fornecedor fica para a 2B (ou o enriquecimento do PNCP).
+    contrato↔contrato entre fontes. Desde a Etapa 2B o lado-TCE de *contratos*
+    existe (os *ajustes*, que já trazem o CNPJ do fornecedor), além das
+    *despesas* (pagamentos). Ainda assim o join PNCP↔TCE de contratos segue
+    limitado: a search API do PNCP não traz fornecedor e os ajustes não trazem
+    o CNPJ do órgão — falta uma chave forte compartilhada. Por isso a tabela
+    `fornecedores` é construída a partir do CNPJ que aparece tanto nas despesas
+    quanto nos ajustes do TCE; o vínculo contrato-PNCP↔fornecedor continua
+    dependendo do enriquecimento (bônus) do PNCP.
 """
 
 from __future__ import annotations
