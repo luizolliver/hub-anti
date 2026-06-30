@@ -13,13 +13,21 @@ Rodar:
 
 from __future__ import annotations
 
-import sqlite3
+# Entry-point: o `streamlit run` coloca a pasta app/ no sys.path, não a raiz do
+# projeto. Inserimos a raiz aqui para que `import config` e `from src...` achem
+# os módulos, independentemente de onde o comando é chamado.
+import sys
+from pathlib import Path
 
-import streamlit as st
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import config
-from src import consultas
-from src.reports.dossie import gerar_html, gerar_markdown, montar_dossie
+import sqlite3  # noqa: E402
+
+import streamlit as st  # noqa: E402
+
+import config  # noqa: E402
+from src import consultas  # noqa: E402
+from src.reports.dossie import gerar_html, gerar_markdown, montar_dossie  # noqa: E402
 
 st.set_page_config(page_title="OBSERVATÓRIO // BARRETOS", page_icon="▣", layout="wide")
 
