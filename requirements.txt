@@ -13,6 +13,7 @@ remotezip>=0.12
 
 # Painel (Etapa 10)
 streamlit>=1.36
+pandas>=2.0        # gráfico "valor por ano" no painel (também é dependência do streamlit)
 
 # Relatórios (Etapa 9): markdown é Python puro (HTML sempre funciona)
 markdown>=3.5
