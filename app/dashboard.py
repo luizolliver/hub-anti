@@ -55,6 +55,11 @@ st.markdown(
     html, body, [class*="css"], .stApp, p, span, div, label, input, td, th, button, [data-baseweb]{
         font-family: var(--mono) !important;
     }
+    /* Restaura a fonte dos ícones do Streamlit (senão o botão de recolher a
+       sidebar mostra o texto 'keyboard_double_arrow_left' em vez do ícone). */
+    [data-testid="stIconMaterial"]{
+        font-family: 'Material Symbols Rounded' !important;
+    }
     .stApp{ background: var(--bg); color: var(--txt); }
 
     /* Esconde o cromo do Streamlit, MAS mantém o controle de abrir/fechar a
@@ -168,6 +173,91 @@ def conectar() -> sqlite3.Connection:
     return conn
 
 
+# ---------------------------------------------------------------------------
+# Camada de leitura cacheada (@st.cache_data)
+# ---------------------------------------------------------------------------
+# Cada consulta é calculada uma vez por combinação de argumentos, em vez de
+# reprocessar a cada rerun (o ranking, p.ex., avalia ~7 mil fornecedores). A
+# conexão é o singleton de `conectar()` (cache_resource) e NÃO entra na chave
+# do cache — os wrappers recebem só argumentos hasháveis. Assim há uma fonte
+# única por consulta. O botão "recarregar" na barra lateral chama
+# `st.cache_data.clear()` para forçar a releitura quando o banco muda.
+def _filtros(modalidade=None, orgao=None, valor_min=None, data_ini=None, data_fim=None) -> dict:
+    return {"modalidade": modalidade, "orgao": orgao, "valor_min": valor_min,
+            "data_ini": data_ini, "data_fim": data_fim}
+
+
+def _filtro_ativo(f: dict) -> bool:
+    return any(f.get(k) for k in ("modalidade", "orgao", "valor_min", "data_ini", "data_fim"))
+
+
+@st.cache_data(show_spinner=False)
+def _metricas() -> dict:
+    return consultas.metricas_gerais(conectar())
+
+
+@st.cache_data(show_spinner=False)
+def _modalidades() -> list:
+    return consultas.modalidades(conectar())
+
+
+@st.cache_data(show_spinner=False)
+def _orgaos() -> list:
+    return consultas.orgaos(conectar())
+
+
+@st.cache_data(show_spinner=False)
+def _ranking(limite, minimo, modalidade, orgao, valor_min, data_ini, data_fim) -> list:
+    return consultas.ranking_atencao(
+        conectar(), limite=limite, minimo=minimo,
+        filtros=_filtros(modalidade, orgao, valor_min, data_ini, data_fim),
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _alertas(dias) -> list:
+    return consultas.alertas_recentes(conectar(), dias=dias)
+
+
+@st.cache_data(show_spinner=False)
+def _contratos(limite, modalidade, orgao, valor_min, data_ini, data_fim) -> list:
+    return consultas.listar_contratos(
+        conectar(), limite=limite, modalidade=modalidade, orgao=orgao,
+        valor_min=valor_min, data_ini=data_ini, data_fim=data_fim,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _busca_fornecedores(termo, modalidade, orgao, valor_min, data_ini, data_fim) -> list:
+    return consultas.buscar_fornecedores(
+        conectar(), termo,
+        filtros=_filtros(modalidade, orgao, valor_min, data_ini, data_fim),
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _busca_objeto(termo) -> list:
+    return consultas.buscar_por_objeto(conectar(), termo)
+
+
+@st.cache_data(show_spinner=False)
+def _busca_socios(termo) -> list:
+    return consultas.buscar_socios(conectar(), termo)
+
+
+@st.cache_data(show_spinner=False)
+def _dossie_dados(cnpj) -> dict:
+    return montar_dossie(conectar(), cnpj)
+
+
+@st.cache_data(show_spinner=False)
+def _dossie_arquivos(cnpj) -> tuple:
+    """Gera (markdown, html) do dossiê — só chamado no fluxo de download."""
+    dados = _dossie_dados(cnpj)
+    md = gerar_markdown(dados)
+    return md, gerar_html(md, titulo=f"Dossiê {cnpj}")
+
+
 def _moeda(v) -> str:
     try:
         return f"R$ {float(v):,.2f}"
@@ -232,17 +322,47 @@ def _link_pncp(c: dict) -> str | None:
 
 
 def _ir_para_perfil(cnpj: str) -> None:
+    """Callback de navegação (on_click): troca de página sem `st.rerun` manual.
+
+    O clique do botão já dispara um rerun; alterar `session_state` aqui (antes
+    dos widgets serem reinstanciados) faz o radio `key="nav"` refletir 'perfil'.
+    """
     st.session_state["cnpj"] = cnpj
     st.session_state["nav"] = "perfil"
-    st.rerun()
+
+
+def filtros_ui(key_prefix: str) -> dict:
+    """
+    Controles de filtro reutilizáveis (modalidade, órgão, valor mínimo, período)
+    para as páginas de contratos, ranking e busca. `key_prefix` isola o estado
+    de cada página. Retorna um dict de filtros (None onde vazio).
+    """
+    with st.expander("filtros", expanded=False):
+        mods = ["(todas)"] + _modalidades()
+        orgs = ["(todos)"] + _orgaos()
+        c1, c2 = st.columns(2)
+        modalidade = c1.selectbox("modalidade", mods, key=f"{key_prefix}_mod")
+        orgao = c2.selectbox("órgão", orgs, key=f"{key_prefix}_org")
+        c3, c4, c5 = st.columns(3)
+        valor_min = c3.number_input("valor mínimo (R$)", min_value=0.0, value=0.0,
+                                    step=1000.0, key=f"{key_prefix}_vmin")
+        data_ini = c4.text_input("de (AAAA-MM-DD)", value="", key=f"{key_prefix}_di")
+        data_fim = c5.text_input("até (AAAA-MM-DD)", value="", key=f"{key_prefix}_df")
+    return _filtros(
+        None if modalidade == "(todas)" else modalidade,
+        None if orgao == "(todos)" else orgao,
+        valor_min or None,
+        data_ini.strip() or None,
+        data_fim.strip() or None,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Páginas
 # ---------------------------------------------------------------------------
-def pagina_visao_geral(conn):
+def pagina_visao_geral():
     _cabecalho("visão geral")
-    m = consultas.metricas_gerais(conn)
+    m = _metricas()
     _mgrid([
         ("fornecedores", f"{m['fornecedores']:,}", False),
         ("empresas (QSA)", f"{m['empresas_enriquecidas']:,}", False),
@@ -255,7 +375,7 @@ def pagina_visao_geral(conn):
     ])
 
     _sec("topo do ranking de atenção")
-    rank = consultas.ranking_atencao(conn, limite=10)
+    rank = _ranking(10, 1, None, None, None, None, None)
     if rank:
         linhas = [[
             str(r["nivel_atencao"]),
@@ -269,7 +389,7 @@ def pagina_visao_geral(conn):
         st.info("sem bandeiras ainda — rode os coletores e o enriquecimento (Etapas 4/5).")
 
     _sec("alertas recentes (últimos 90 dias)")
-    alertas = consultas.alertas_recentes(conn, dias=90)
+    alertas = _alertas(90)
     if alertas:
         st.caption(f"{len(alertas)} contrato(s) recente(s) com fornecedor já sinalizado.")
         linhas = [[
@@ -284,12 +404,17 @@ def pagina_visao_geral(conn):
         st.caption("nenhum contrato assinado nos últimos 90 dias com bandeira ativa.")
 
 
-def pagina_ranking(conn):
+def pagina_ranking():
     _cabecalho("ranking de atenção")
     minimo = st.slider("nível mínimo de atenção", 1, 15, 1)
     limite = st.slider("quantos exibir", 10, 200, 50, step=10)
-    rank = consultas.ranking_atencao(conn, limite=limite, minimo=minimo)
+    f = filtros_ui("rank")
+    rank = _ranking(limite, minimo, f["modalidade"], f["orgao"], f["valor_min"],
+                    f["data_ini"], f["data_fim"])
     st.caption(f"{len(rank)} fornecedores com nível ≥ {minimo}")
+    if _filtro_ativo(f):
+        st.caption("ℹ o filtro só seleciona quem tem contrato correspondente — "
+                   "o nível e as bandeiras refletem o histórico completo do fornecedor.")
     for r in rank:
         cols = st.columns([1, 5, 3, 2])
         cols[0].markdown(
@@ -303,24 +428,29 @@ def pagina_ranking(conn):
             unsafe_allow_html=True,
         )
         cols[2].markdown(_badges(r["bandeiras"]), unsafe_allow_html=True)
-        if cols[3].button("perfil ▸", key=f"go_{r['cnpj']}"):
-            _ir_para_perfil(r["cnpj"])
+        cols[3].button("perfil ▸", key=f"go_{r['cnpj']}",
+                       on_click=_ir_para_perfil, args=(r["cnpj"],))
 
 
-def pagina_buscar(conn):
+def pagina_buscar():
     _cabecalho("buscar")
     modo = st.radio(
         "modo de busca", ["fornecedor", "objeto de contrato", "sócio (CPF ou nome)"],
         horizontal=True,
     )
+    filtro = filtros_ui("busca") if modo == "fornecedor" else _filtros()
     termo = st.text_input("termo", placeholder="> digite e tecle enter")
     if not termo:
         return
 
     if modo == "fornecedor":
-        fns = consultas.buscar_fornecedores(conn, termo)
+        fns = _busca_fornecedores(termo, filtro["modalidade"], filtro["orgao"],
+                                  filtro["valor_min"], filtro["data_ini"], filtro["data_fim"])
         if not fns:
             st.warning("nenhum fornecedor encontrado.")
+        elif _filtro_ativo(filtro):
+            st.caption("ℹ o filtro só seleciona quem tem contrato correspondente — "
+                       "o nível/bandeiras no perfil refletem o histórico completo.")
         for f in fns:
             cols = st.columns([6, 3, 2])
             cols[0].markdown(
@@ -329,11 +459,11 @@ def pagina_buscar(conn):
                 unsafe_allow_html=True,
             )
             cols[1].markdown(f"recebido: {_moeda(f['valor_pago'])}")
-            if cols[2].button("perfil ▸", key=f"b_{f['cnpj']}"):
-                _ir_para_perfil(f["cnpj"])
+            cols[2].button("perfil ▸", key=f"b_{f['cnpj']}",
+                           on_click=_ir_para_perfil, args=(f["cnpj"],))
 
     elif modo == "objeto de contrato":
-        contratos = consultas.buscar_por_objeto(conn, termo)
+        contratos = _busca_objeto(termo)
         if not contratos:
             st.warning("nenhum contrato com esse objeto.")
         else:
@@ -349,7 +479,7 @@ def pagina_buscar(conn):
             _tbl(["data", "órgão", "modalidade", "valor", "fornecedor", "objeto"], linhas)
 
     else:  # sócio
-        pessoas = consultas.buscar_socios(conn, termo)
+        pessoas = _busca_socios(termo)
         if not pessoas:
             st.warning("nenhum sócio encontrado entre as empresas fornecedoras.")
         for p in pessoas:
@@ -368,8 +498,8 @@ def pagina_buscar(conn):
                     unsafe_allow_html=True,
                 )
                 cols[1].markdown(_moeda(e["valor"]))
-                if cols[2].button("perfil ▸", key=f"s_{cpf}_{e['cnpj']}"):
-                    _ir_para_perfil(e["cnpj"])
+                cols[2].button("perfil ▸", key=f"s_{cpf}_{e['cnpj']}",
+                               on_click=_ir_para_perfil, args=(e["cnpj"],))
 
 
 def _json_cadastro(emp: dict) -> None:
@@ -391,7 +521,7 @@ def _json_cadastro(emp: dict) -> None:
     st.markdown(f"<div class='json'>▾ {{<br>{corpo}<br>}}</div>", unsafe_allow_html=True)
 
 
-def pagina_perfil(conn):
+def pagina_perfil():
     _cabecalho("perfil do fornecedor")
     st.markdown("<div style='font-size:10px;color:var(--lime);letter-spacing:.1em'>CNPJ</div>",
                 unsafe_allow_html=True)
@@ -399,7 +529,7 @@ def pagina_perfil(conn):
     if not cnpj:
         st.info("informe um CNPJ ou venha do ranking/busca.")
         return
-    dados = montar_dossie(conn, cnpj)
+    dados = _dossie_dados(cnpj)
     emp = dados.get("empresa") or {}
     forn = dados.get("fornecedor") or {}
     nome = emp.get("razao_social") or forn.get("nome") or cnpj
@@ -519,33 +649,28 @@ def pagina_perfil(conn):
         else:
             st.caption("sem doações relacionadas.")
 
-    md = gerar_markdown(dados)
-    d1, d2 = st.columns(2)
-    d1.download_button("⤓ dossiê (.md)", md, file_name=f"dossie_{cnpj}.md", mime="text/markdown")
-    d2.download_button("⤓ dossiê (.html)", gerar_html(md, titulo=f"Dossiê {cnpj}"),
-                       file_name=f"dossie_{cnpj}.html", mime="text/html")
+    # Dossiê só sob demanda: só geramos o markdown/html quando o usuário pede
+    # (evita renderizar o documento a cada abertura de perfil).
+    _sec("dossiê")
+    st.session_state.setdefault("gerar_dossie", None)
+    if st.button("gerar dossiê", key=f"gd_{cnpj}"):
+        st.session_state["gerar_dossie"] = cnpj
+    if st.session_state.get("gerar_dossie") == cnpj:
+        md, html = _dossie_arquivos(cnpj)
+        d1, d2 = st.columns(2)
+        d1.download_button("⤓ dossiê (.md)", md, file_name=f"dossie_{cnpj}.md",
+                           mime="text/markdown")
+        d2.download_button("⤓ dossiê (.html)", html, file_name=f"dossie_{cnpj}.html",
+                           mime="text/html")
+    else:
+        st.caption("clique em “gerar dossiê” para produzir os arquivos .md/.html.")
 
 
-def pagina_contratos(conn):
+def pagina_contratos():
     _cabecalho("contratos")
-    mods = ["(todas)"] + consultas.modalidades(conn)
-    orgs = ["(todos)"] + consultas.orgaos(conn)
-    f1, f2 = st.columns(2)
-    modalidade = f1.selectbox("modalidade", mods)
-    orgao = f2.selectbox("órgão", orgs)
-    f3, f4, f5 = st.columns(3)
-    valor_min = f3.number_input("valor mínimo (R$)", min_value=0.0, value=0.0, step=1000.0)
-    data_ini = f4.text_input("de (AAAA-MM-DD)", value="")
-    data_fim = f5.text_input("até (AAAA-MM-DD)", value="")
-
-    contratos = consultas.listar_contratos(
-        conn, limite=500,
-        modalidade=None if modalidade == "(todas)" else modalidade,
-        orgao=None if orgao == "(todos)" else orgao,
-        valor_min=valor_min or None,
-        data_ini=data_ini.strip() or None,
-        data_fim=data_fim.strip() or None,
-    )
+    f = filtros_ui("contr")
+    contratos = _contratos(500, f["modalidade"], f["orgao"], f["valor_min"],
+                           f["data_ini"], f["data_fim"])
     st.caption(f"{len(contratos)} contrato(s).")
     if contratos:
         linhas = [[
@@ -590,16 +715,21 @@ def main():
         st.markdown("<div style='font-size:9px;color:var(--txt3);letter-spacing:.14em;"
                     "text-transform:uppercase;margin:16px 0 4px'>// navegação</div>",
                     unsafe_allow_html=True)
-        nav_padrao = st.session_state.get("nav", "visão geral")
-        escolha = st.radio("navegação", list(paginas), index=list(paginas).index(nav_padrao),
+        # `key="nav"` faz o radio ser a única fonte da página atual; os callbacks
+        # de navegação (perfil ▸) escrevem em session_state["nav"] e o radio
+        # reflete na próxima renderização — sem index= nem escrita dupla.
+        st.session_state.setdefault("nav", "visão geral")
+        escolha = st.radio("navegação", list(paginas), key="nav",
                            label_visibility="collapsed")
-        st.session_state["nav"] = escolha
+        if st.button("↻ recarregar dados"):
+            st.cache_data.clear()
+            st.rerun()
         st.markdown("<div class='sfoot'>indícios sujeitos a apuração — nunca veredito.</div>",
                     unsafe_allow_html=True)
 
     try:
-        conn = conectar()
-        paginas[escolha](conn)
+        conectar()  # valida a conexão cedo (erro amigável se o banco não existe)
+        paginas[escolha]()
     except sqlite3.OperationalError:
         st.error("banco não encontrado/iniciado. Rode `python -m src.db` e os coletores.")
 

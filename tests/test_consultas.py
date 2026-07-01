@@ -162,3 +162,43 @@ def test_ranking_inclui_flags_novas(tmp_path):
     assert alfa["valor_pago"] == 0
     assert alfa["valor_total"] == 500000.0
     conn.close()
+
+
+def test_cnpjs_por_filtro(tmp_path):
+    from src.consultas import cnpjs_por_filtro
+    conn = _seed_rede(tmp_path)
+    # Sem filtro ativo → None (sem restrição).
+    assert cnpjs_por_filtro(conn, None) is None
+    assert cnpjs_por_filtro(conn, {"orgao": None, "valor_min": 0}) is None
+    # Órgão com contrato só do ALFA.
+    assert cnpjs_por_filtro(conn, {"orgao": "PREFEITURA"}) == {"11111111000111"}
+    # Valor mínimo acima do contrato → conjunto vazio.
+    assert cnpjs_por_filtro(conn, {"valor_min": 1_000_000}) == set()
+    conn.close()
+
+
+def test_ranking_com_filtro(tmp_path):
+    conn = _seed_rede(tmp_path)
+    conn.execute(
+        "INSERT INTO empresas (cnpj, razao_social, situacao_cadastral, data_inicio_atividade) "
+        "VALUES ('11111111000111','ALFA','ATIVA','2020-10-01')"  # EMPRESA_NOVA_NO_CONTRATO
+    )
+    conn.commit()
+    # Filtro casa o contrato do ALFA → ALFA aparece.
+    r1 = ranking_atencao(conn, filtros={"orgao": "PREFEITURA"})
+    assert "11111111000111" in [x["cnpj"] for x in r1]
+    # Filtro por órgão sem contrato do ALFA → ALFA some (nível segue do histórico).
+    r2 = ranking_atencao(conn, filtros={"orgao": "SAAE"})
+    assert "11111111000111" not in [x["cnpj"] for x in r2]
+    conn.close()
+
+
+def test_buscar_fornecedores_com_filtro(tmp_path):
+    conn = _seed_rede(tmp_path)
+    # Sem filtro acha ALFA pelo nome.
+    assert buscar_fornecedores(conn, "ALFA")[0]["cnpj"] == "11111111000111"
+    # Com filtro casando o contrato do ALFA, continua achando.
+    assert buscar_fornecedores(conn, "ALFA", filtros={"orgao": "PREFEITURA"})
+    # Com filtro que não casa, some.
+    assert buscar_fornecedores(conn, "ALFA", filtros={"orgao": "SAAE"}) == []
+    conn.close()

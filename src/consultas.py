@@ -228,11 +228,54 @@ def _bandeiras_lote(conn: sqlite3.Connection) -> dict[str, list]:
     return resultado
 
 
-def ranking_atencao(conn: sqlite3.Connection, limite: int = 50, minimo: int = 1) -> list[dict]:
+def _tem_filtro(filtros: dict | None) -> bool:
+    """True se algum filtro de contrato está preenchido."""
+    if not filtros:
+        return False
+    return any(
+        (filtros.get(k) not in (None, "", 0, 0.0))
+        for k in ("modalidade", "orgao", "valor_min", "data_ini", "data_fim")
+    )
+
+
+def cnpjs_por_filtro(conn: sqlite3.Connection, filtros: dict | None) -> set | None:
+    """
+    Conjunto de `fornecedor_cnpj` que aparecem em contratos casando os filtros
+    (modalidade, órgão, valor mínimo, período). Devolve **None** quando não há
+    filtro ativo — sinal de "sem restrição". Usado por ranking e busca para
+    limitar QUEM aparece, sem alterar o cálculo das bandeiras.
+    """
+    if not _tem_filtro(filtros):
+        return None
+    where = ["fornecedor_cnpj IS NOT NULL"]
+    params: list = []
+    clausulas = [
+        ("modalidade = ?", filtros.get("modalidade")),
+        ("orgao = ?", filtros.get("orgao")),
+        ("valor >= ?", filtros.get("valor_min")),
+        ("data >= ?", filtros.get("data_ini")),
+        ("data <= ?", filtros.get("data_fim")),
+    ]
+    for clausula, valor in clausulas:
+        if valor not in (None, "", 0, 0.0):
+            where.append(clausula)
+            params.append(valor)
+    sql = "SELECT DISTINCT fornecedor_cnpj FROM contratos WHERE " + " AND ".join(where)
+    return {r[0] for r in conn.execute(sql, params)}
+
+
+def ranking_atencao(
+    conn: sqlite3.Connection, limite: int = 50, minimo: int = 1, filtros: dict | None = None
+) -> list[dict]:
     """
     Fornecedores ordenados por nível de atenção (soma dos pesos das bandeiras),
     do maior para o menor. Só inclui quem tem nível >= `minimo`.
+
+    Se `filtros` estiver ativo, restringe aos fornecedores com ao menos um
+    contrato correspondente — **o nível/bandeiras seguem computados sobre o
+    histórico completo do fornecedor** (o filtro só seleciona quem aparece).
     """
+    alvo = cnpjs_por_filtro(conn, filtros)
     bandeiras = _bandeiras_lote(conn)
     nomes = {
         r["cnpj"]: r
@@ -240,6 +283,8 @@ def ranking_atencao(conn: sqlite3.Connection, limite: int = 50, minimo: int = 1)
     }
     linhas = []
     for cnpj, bs in bandeiras.items():
+        if alvo is not None and cnpj not in alvo:
+            continue
         nivel = sum(b.peso for b in bs)
         if nivel < minimo:
             continue
@@ -261,18 +306,25 @@ def ranking_atencao(conn: sqlite3.Connection, limite: int = 50, minimo: int = 1)
     return linhas[:limite]
 
 
-def buscar_fornecedores(conn: sqlite3.Connection, termo: str, limite: int = 50) -> list[dict]:
-    """Busca fornecedores por trecho do nome ou do CNPJ."""
+def buscar_fornecedores(
+    conn: sqlite3.Connection, termo: str, limite: int = 50, filtros: dict | None = None
+) -> list[dict]:
+    """
+    Busca fornecedores por trecho do nome ou do CNPJ. Se `filtros` estiver ativo,
+    mantém só quem tem contrato correspondente (mesma semântica do ranking).
+    """
     termo = (termo or "").strip()
     if not termo:
         return []
+    alvo = cnpjs_por_filtro(conn, filtros)
     like = f"%{termo}%"
     rows = conn.execute(
         "SELECT cnpj, nome, valor_pago, n_despesas FROM fornecedores "
-        "WHERE nome LIKE ? OR cnpj LIKE ? ORDER BY valor_pago DESC LIMIT ?",
-        (like, like, limite),
+        "WHERE nome LIKE ? OR cnpj LIKE ? ORDER BY valor_pago DESC",
+        (like, like),
     ).fetchall()
-    return [dict(r) for r in rows]
+    res = [dict(r) for r in rows if alvo is None or r["cnpj"] in alvo]
+    return res[:limite]
 
 
 def buscar_pessoas(conn: sqlite3.Connection, termo: str, limite: int = 50) -> list[dict]:
