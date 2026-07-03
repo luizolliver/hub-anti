@@ -6,7 +6,9 @@ data/
 
 # Artefato do pyvis (vis.js/tom-select copiados ao gerar HTML da rede)
 lib/
+# Ignora HTML gerado (dossiês, rede), mas versiona os templates da interface web.
 *.html
+!web/templates/**/*.html
 
 # Python
 __pycache__/
