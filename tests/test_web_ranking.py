@@ -35,8 +35,12 @@ def client(tmp_path, monkeypatch):
         "VALUES ('so','09095412000127','HENRIQUE DUARTE PRATA','HENRIQUE DUARTE PRATA','PF')"
     )
     conn.execute(
-        "INSERT INTO contratos (id, fonte, fornecedor_cnpj, fornecedor_nome, orgao, modalidade, objeto, valor, data, ano) "
-        "VALUES ('k1','TCE-SP','09095412000127','ABBC','PREFEITURA','Dispensa','SERVICOS DE SAUDE',500000.0,'2024-05-01','2024')"
+        "INSERT INTO contratos (id, fonte, id_origem, fornecedor_cnpj, fornecedor_nome, orgao, modalidade, objeto, valor, data, ano) "
+        "VALUES ('k1','TCE-SP','2019900000117','09095412000127','ABBC','PREFEITURA','Dispensa','SERVICOS DE SAUDE',500000.0,'2024-05-01','2024')"
+    )
+    conn.execute(
+        "INSERT INTO contratos (id, fonte, id_origem, fornecedor_cnpj, fornecedor_nome, orgao, modalidade, objeto, valor, data, ano) "
+        "VALUES ('k2','PNCP','/contratos/44780609000104/2026/69','09095412000127','ABBC','PREFEITURA','Pregao','EQUIPAMENTOS',80000.0,'2026-02-01','2026')"
     )
     conn.commit()
     conn.close()
@@ -113,11 +117,17 @@ def test_api_contratos(client):
     r = client.get("/api/contratos?limite=50")
     assert r.status_code == 200
     data = r.json()
-    assert data["count"] == 1
-    c = data["contratos"][0]
-    assert c["cnpj"] == "09095412000127"
-    assert c["valor"] == 500000.0
-    assert set(c) >= {"data", "orgao", "modalidade", "valor", "objeto", "fornecedor", "fonte"}
+    assert data["count"] == 2
+    porc = {c["fonte"]: c for c in data["contratos"]}
+    assert set(porc["PNCP"]) >= {"data", "orgao", "modalidade", "valor", "objeto",
+                                 "fornecedor", "fonte", "link"}
+    # PNCP → permalink por registro
+    assert porc["PNCP"]["link"]["tipo"] == "registro"
+    assert porc["PNCP"]["link"]["url"] == \
+        "https://pncp.gov.br/app/contratos/44780609000104/2026/000069"
+    # TCE-SP → aponta para o portal da fonte (sem permalink por registro)
+    assert porc["TCE-SP"]["link"]["tipo"] == "portal"
+    assert "tce.sp.gov.br" in porc["TCE-SP"]["link"]["url"]
 
 
 def test_api_perfil(client):
@@ -129,8 +139,15 @@ def test_api_perfil(client):
     assert "SITUACAO_CADASTRAL" in p["flags"]
     assert p["flags_detail"][0]["peso"] >= 1
     assert p["cad"]["situacao"] == "INAPTA"
-    assert p["n_contratos"] == 1
+    assert p["n_contratos"] == 2
     assert p["sancoes"] and p["sancoes"][0]["fonte"] == "CEIS"
+    # sanção por vínculo "cnpj" → busca pré-preenchida pelo CNPJ na fonte
+    sl = p["sancoes"][0]["link"]
+    assert sl["tipo"] == "busca"
+    assert "portaldatransparencia.gov.br" in sl["url"]
+    assert "09095412000127" in sl["url"]
+    # contratos do perfil trazem link da fonte
+    assert all("link" in c for c in p["contratos"])
 
 
 def test_dossie_html(client):

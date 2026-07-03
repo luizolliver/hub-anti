@@ -27,6 +27,7 @@ from starlette.requests import Request
 import config
 from src import consultas
 from src.reports import dossie as dossie_mod
+from web import sources
 from web.flags_meta import FLAGS_META
 
 BASE = Path(__file__).resolve().parent
@@ -243,6 +244,7 @@ def api_contratos(
                 "fornecedor": c["fornecedor_nome"],
                 "cnpj": c["fornecedor_cnpj"],
                 "fonte": c["fonte"],
+                "link": sources.contrato_link(c["fonte"], c["id_origem"]),
             }
             for c in rows
         ],
@@ -289,6 +291,7 @@ def api_perfil(cnpj: str):
                 "valor": c.get("valor"),
                 "objeto": c.get("objeto"),
                 "fonte": c.get("fonte"),
+                "link": sources.contrato_link(c.get("fonte"), c.get("id_origem")),
             }
             for c in contratos[:50]
         ],
@@ -298,8 +301,18 @@ def api_perfil(cnpj: str):
             for s in d.get("socios") or []
         ],
         "sancoes": [
-            {"fonte": s.get("fonte"), "categoria": s.get("categoria"),
-             "vinculo": s.get("vinculo")}
+            {
+                "fonte": s.get("fonte"),
+                "categoria": s.get("categoria"),
+                "vinculo": s.get("vinculo"),
+                # vínculo "cnpj" → sanção é do próprio CNPJ perfilado; senão,
+                # busca pelo nome do sancionado (sócio/homônimo a apurar).
+                "link": sources.sancao_link(
+                    s.get("fonte"),
+                    documento=cnpj if s.get("vinculo") == "cnpj" else None,
+                    nome=s.get("nome_sancionado"),
+                ),
+            }
             for s in d.get("sancoes") or []
         ],
         "irmas": [

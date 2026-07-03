@@ -16,6 +16,13 @@ const fmtData = d => d ? String(d).slice(0,10).split("-").reverse().join("/") : 
 const lvlColor = l => l>=7 ? "var(--red)" : l>=4 ? "var(--amber)" : "var(--lime)";
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function linkHTML(link){
+  if(!link) return "";
+  const tip = link.tipo==="registro" ? "abre o documento na fonte oficial"
+            : link.tipo==="busca"    ? "abre a busca pré-preenchida na fonte oficial"
+            : "abre o portal da fonte oficial (sem link por registro)";
+  return `<a class="srclink ${esc(link.tipo)}" href="${esc(link.url)}" target="_blank" rel="noopener" title="${esc(tip)}">${esc(link.label)} ↗</a>`;
+}
 
 function meterHTML(lvl){
   let bars="";
@@ -198,12 +205,13 @@ function renderContracts(filter=""){
       <td>${esc(c.orgao)||"—"}<div class="sup-cnpj" style="margin-top:3px">${esc((c.objeto||"").slice(0,70))}</div></td>
       <td><span class="modalidade">${esc(c.modalidade)||"—"}</span></td>
       <td class="val" style="text-align:right">${fmtBRL(c.valor)}</td>
-    </tr>`).join("") || `<tr><td colspan="4" style="color:var(--txt-2)">Nenhum contrato encontrado para “${esc(filter)}”.</td></tr>`;
+      <td>${linkHTML(c.link) || `<span class="fc-code">${esc(c.fonte)}</span>`}</td>
+    </tr>`).join("") || `<tr><td colspan="5" style="color:var(--txt-2)">Nenhum contrato encontrado para “${esc(filter)}”.</td></tr>`;
   $("#contractNote").textContent = `// exibindo ${rows.length} de ${CONTRATOS_CACHE.length} contratos (200 mais recentes · PNCP/TCE-SP)`;
 }
 function rebuildContractsTable(){
   $("#contractsWrap").innerHTML = `<table>
-    <thead><tr><th>Data</th><th>Órgão / objeto</th><th>Modalidade</th><th style="text-align:right">Valor</th></tr></thead>
+    <thead><tr><th>Data</th><th>Órgão / objeto</th><th>Modalidade</th><th style="text-align:right">Valor</th><th>Fonte</th></tr></thead>
     <tbody id="contractsBody"></tbody></table>`;
 }
 
@@ -273,7 +281,7 @@ async function renderProfile(cnpj){
 
     ${s.sancoes.length ? `<div class="panel reveal" style="margin-top:14px;border-color:rgba(255,97,97,.3)">
       <h3 style="color:var(--red)">Sanções <small>CEIS/CNEP</small></h3>
-      ${s.sancoes.map(x=>`<div class="fc-desc">• <b>${esc(x.fonte)}</b> — ${esc(x.categoria)||"—"} <span class="fc-code">[${esc(x.vinculo)}]</span></div>`).join("")}
+      ${s.sancoes.map(x=>`<div class="fc-desc" style="margin-bottom:6px">• <b>${esc(x.fonte)}</b> — ${esc(x.categoria)||"—"} <span class="fc-code">[${esc(x.vinculo)}]</span> ${linkHTML(x.link)}</div>`).join("")}
     </div>`:""}
 
     ${s.irmas.length ? `<div class="panel reveal" style="margin-top:14px">
@@ -284,8 +292,8 @@ async function renderProfile(cnpj){
     ${s.contratos.length ? `<div class="panel reveal" style="margin-top:14px">
       <h3>Contratos <small>${s.n_contratos} NO TOTAL · ${s.contratos.length} EXIBIDOS</small></h3>
       <div class="tablewrap">
-        <table><thead><tr><th>Data</th><th>Órgão</th><th>Modalidade</th><th style="text-align:right">Valor</th></tr></thead>
-        <tbody>${s.contratos.map(c=>`<tr><td class="mono">${fmtData(c.data)}</td><td>${esc(c.orgao)||"—"}<div class="sup-cnpj" style="margin-top:3px">${esc((c.objeto||"").slice(0,60))}</div></td><td><span class="modalidade">${esc(c.modalidade)||"—"}</span></td><td class="val" style="text-align:right">${fmtBRL(c.valor)}</td></tr>`).join("")}</tbody></table>
+        <table><thead><tr><th>Data</th><th>Órgão</th><th>Modalidade</th><th style="text-align:right">Valor</th><th>Fonte</th></tr></thead>
+        <tbody>${s.contratos.map(c=>`<tr><td class="mono">${fmtData(c.data)}</td><td>${esc(c.orgao)||"—"}<div class="sup-cnpj" style="margin-top:3px">${esc((c.objeto||"").slice(0,60))}</div></td><td><span class="modalidade">${esc(c.modalidade)||"—"}</span></td><td class="val" style="text-align:right">${fmtBRL(c.valor)}</td><td>${linkHTML(c.link) || `<span class="fc-code">${esc(c.fonte)}</span>`}</td></tr>`).join("")}</tbody></table>
       </div>
     </div>`:""}
 
