@@ -55,15 +55,20 @@ despesas TCE 2019 + QSA/sanções/doações cruzadas).
 - **Ocorrências:** ~143.
 
 ### `DISPENSA_ACIMA_LIMITE` — peso 3
-- **O quê:** contratação direta (dispensa/inexigibilidade) com valor **acima do
-  limite legal**, exigindo justificativa formal.
-- **Fonte:** PNCP/TCE (modalidade + valor).
-- **Lógica:** modalidade é contratação direta **e** `valor > R$ 57.208,33`
-  (bens/serviços) ou `> R$ 114.416,66` (obras — detectadas por heurística no
-  objeto). Limites 2024 em `config.LIMITE_DISPENSA_*`. A evidência traz o valor
-  exato e o limite vigente.
+- **O quê:** **dispensa em razão do valor** com valor **acima do teto legal
+  vigente na data do contrato**, exigindo justificativa formal.
+- **Fonte:** PNCP/TCE (modalidade + valor + data + objeto).
+- **Lógica:** é dispensa por valor (exclui **inexigibilidade** e **dispensa
+  emergencial/calamidade**, que não têm teto de valor) **e** `valor > teto`,
+  onde o **teto é o vigente no ano do contrato** (`config.LIMITES_DISPENSA`,
+  Lei 8.666 → Lei 14.133, com os decretos de atualização). Obra vs. bens/
+  serviços é decidido por heurística no objeto. A evidência traz o valor, o
+  teto e a data de vigência do teto.
+- **Por que por ano:** os contratos vão de 2014 a 2026; um teto fixo geraria
+  falso positivo em contrato recente (perto do teto novo) e falso negativo em
+  contrato antigo (teto da época era muito menor).
 - **Exemplo real:** PORTO SEGURO CIA DE SEGUROS GERAIS (61198164000160).
-- **Ocorrências:** ~78.
+- **Ocorrências:** ~76.
 
 ### `ENTIDADE_SEM_FINS_LUCRATIVOS_SEM_LICITACAO` — peso 4
 - **O quê:** entidade sem fins lucrativos (associação/fundação/OSCIP) contratada

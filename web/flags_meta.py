@@ -31,7 +31,8 @@ FLAGS_META: dict[str, dict[str, str]] = {
     },
     "DISPENSA_ACIMA_LIMITE": {
         "label": "Dispensa acima do limite",
-        "desc": "Contratação por dispensa com valor acima do limite legal para a modalidade.",
+        "desc": "Dispensa em razão do valor acima do teto legal vigente no ano do contrato "
+                "(não inclui inexigibilidade nem dispensa emergencial).",
         "tone": "red",
     },
     "ENTIDADE_SEM_FINS_LUCRATIVOS_SEM_LICITACAO": {

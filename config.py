@@ -74,7 +74,7 @@ PNCP_DETALHE_URL = "https://pncp.gov.br/api/pncp"
 CNPJ_PREFEITURA = "44780609000104"
 
 # PLACEHOLDER — preencher com o CNPJ real da Câmara Municipal de Barretos.
-CNPJ_CAMARA = "00000000000000"
+CNPJ_CAMARA = "64925829000188"
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +93,31 @@ LIMIAR_CONCENTRACAO = 0.50
 # Empresa "nova" no 1º contrato: idade (abertura → 1º contrato) abaixo disto.
 LIMIAR_EMPRESA_NOVA_CONTRATO_DIAS = 365
 
-# Limites legais 2024 para contratação direta (Lei 14.133/2021, valores
-# atualizados por decreto). Acima destes, a dispensa exige justificativa formal.
-LIMITE_DISPENSA_BENS_SERVICOS = 57208.33   # bens e serviços comuns
-LIMITE_DISPENSA_OBRAS = 114416.66          # obras e serviços de engenharia
+# Limites legais da dispensa "em razão do valor", POR VIGÊNCIA. Cada contrato é
+# comparado ao teto vigente na sua data (os contratos vão de 2014 a 2026,
+# cruzando a Lei 8.666 e a Lei 14.133). Acima do teto, a dispensa exige
+# justificativa formal — vira indício.
+#
+# (data_inicio_vigencia, teto_obras_engenharia, teto_bens_e_servicos)
+# Fontes:
+#   Lei 8.666/93 art. 24 I/II (red. Lei 9.648/98): R$ 15.000 / R$ 8.000
+#   Decreto 9.412/2018 (vig. 19/07/2018):          R$ 33.000 / R$ 17.600
+#   Lei 14.133/2021 art. 75 I/II (original):       R$ 100.000 / R$ 50.000
+#   Decreto 11.317/2022 (vig. 01/01/2023):         R$ 114.416,66 / R$ 57.208,33
+#   Decreto 11.871/2023 (vig. 01/01/2024):         R$ 119.812,02 / R$ 59.906,02
+#   Decreto 12.343/2024 (vig. 01/01/2025):         R$ 125.451,15 / R$ 62.725,59
+#   Decreto 12.807/2025 (vig. 01/01/2026):         R$ 130.984,20 / R$ 65.492,11
+# Na transição 2021–2023 (coexistência 8.666/14.133), usamos o teto MAIOR
+# (14.133) para não gerar falso positivo.
+LIMITES_DISPENSA = [
+    ("0001-01-01", 15000.00, 8000.00),
+    ("2018-07-19", 33000.00, 17600.00),
+    ("2021-04-01", 100000.00, 50000.00),
+    ("2023-01-01", 114416.66, 57208.33),
+    ("2024-01-01", 119812.02, 59906.02),
+    ("2025-01-01", 125451.15, 62725.59),
+    ("2026-01-01", 130984.20, 65492.11),
+]
 
 # Concentração por órgão/secretaria: fração dos contratos de um órgão, num ano,
 # concentrada num único fornecedor que dispara a bandeira.

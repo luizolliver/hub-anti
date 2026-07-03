@@ -67,6 +67,49 @@ def _eh_obra(objeto: str | None) -> bool:
     return any(t in o for t in termos)
 
 
+def _eh_dispensa_por_valor(modalidade: str | None, objeto: str | None) -> bool:
+    """
+    True apenas para DISPENSA "em razão do valor" — a única hipótese de
+    contratação direta com teto de valor.
+
+    Fica de fora (não têm teto de valor, logo não são "acima do limite"):
+      - inexigibilidade (art. 74 — inviabilidade de competição, qualquer valor);
+      - dispensa emergencial/calamidade (art. 75 VIII / 8.666 art. 24 IV).
+    """
+    m = (modalidade or "").lower()
+    o = (objeto or "").lower()
+    if "inexig" in m:
+        return False
+    if "dispensa" not in m and "direta" not in m:
+        return False
+    if any(t in o for t in ("emergenc", "emergênc", "calamid")):
+        return False
+    return True
+
+
+def _brl(v: float) -> str:
+    """Formata em Real no padrão pt-BR (R$ 1.234,56)."""
+    return f"R$ {v:,.2f}".replace(",", "§").replace(".", ",").replace("§", ".")
+
+
+def _limite_dispensa(data: str | None, eh_obra: bool) -> tuple[float, str]:
+    """
+    Teto da dispensa por valor VIGENTE na data do contrato (ver
+    `config.LIMITES_DISPENSA`). Sem data, usa o teto mais recente (conservador:
+    evita falso positivo). Retorna (limite, vigencia_inicio).
+    """
+    d = _data(data)
+    ref = d.isoformat() if d else "9999-12-31"
+    escolhido = config.LIMITES_DISPENSA[0]
+    for faixa in config.LIMITES_DISPENSA:
+        if ref >= faixa[0]:
+            escolhido = faixa
+        else:
+            break
+    inicio, teto_obra, teto_bs = escolhido
+    return (teto_obra if eh_obra else teto_bs), inicio
+
+
 # ---------------------------------------------------------------------------
 # Regras (uma função pura por regra)
 # ---------------------------------------------------------------------------
@@ -277,30 +320,38 @@ def empresa_nova_no_contrato(
 
 def dispensa_acima_limite(contratos: list[dict] | None) -> Bandeira | None:
     """
-    Contratação direta (dispensa/inexigibilidade) com valor acima do limite
-    legal (R$ 57.208,33 bens/serviços; R$ 114.416,66 obras — valores 2024).
+    Dispensa "em razão do valor" acima do teto legal VIGENTE na data do contrato.
+
+    Compara cada contrato ao teto do seu ano (`config.LIMITES_DISPENSA`), porque
+    os contratos cruzam a Lei 8.666 e a Lei 14.133 — um teto fixo geraria falso
+    positivo em contrato recente e falso negativo em contrato antigo. Considera
+    apenas dispensa por valor: inexigibilidade e dispensa emergencial não têm
+    teto de valor e ficam de fora (ver `_eh_dispensa_por_valor`).
     """
-    pior = None
+    pior = None  # (excedente, valor, limite, vigencia, contrato)
     for c in contratos or []:
-        if not _eh_contratacao_direta(c.get("modalidade")):
+        if not _eh_dispensa_por_valor(c.get("modalidade"), c.get("objeto")):
             continue
         valor = c.get("valor") or 0
-        limite = config.LIMITE_DISPENSA_OBRAS if _eh_obra(c.get("objeto")) else config.LIMITE_DISPENSA_BENS_SERVICOS
-        if valor > limite and (pior is None or valor > pior[0]):
-            pior = (valor, limite, c)
+        limite, vigencia = _limite_dispensa(c.get("data"), _eh_obra(c.get("objeto")))
+        if valor > limite:
+            excedente = valor - limite
+            if pior is None or excedente > pior[0]:
+                pior = (excedente, valor, limite, vigencia, c)
     if not pior:
         return None
-    valor, limite, c = pior
+    _, valor, limite, vigencia, c = pior
     return Bandeira(
         codigo="DISPENSA_ACIMA_LIMITE",
         descricao=(
-            "Contratação direta (dispensa/inexigibilidade) com valor acima do "
-            "limite legal — exige justificativa formal"
+            f"Dispensa de {_brl(valor)} acima do teto legal de {_brl(limite)} "
+            f"(vigente desde {vigencia}) — exige justificativa formal"
         ),
         evidencia={
             "modalidade": c.get("modalidade"),
             "valor": round(valor, 2),
             "limite_vigente": limite,
+            "vigencia_desde": vigencia,
             "objeto": (c.get("objeto") or "")[:80],
             "data": c.get("data"),
         },

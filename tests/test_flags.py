@@ -146,19 +146,57 @@ def test_empresa_nova_no_contrato():
 
 
 def test_dispensa_acima_limite():
+    # Dispensa por valor acima do teto de 2024 (bens/serviços R$ 59.906,02).
     contratos = [
-        {"modalidade": "Pregao Eletronico", "valor": 999999, "objeto": "merenda"},
-        {"modalidade": "Contratacao Direta - Dispensa de licitacao", "valor": 80000, "objeto": "papel"},
+        {"modalidade": "Pregao Eletronico", "valor": 999999, "objeto": "merenda", "data": "2024-01-01"},
+        {"modalidade": "Contratacao Direta - Dispensa de licitacao", "valor": 80000,
+         "objeto": "papel", "data": "2024-03-01"},
     ]
     b = dispensa_acima_limite(contratos)
     assert b and b.codigo == "DISPENSA_ACIMA_LIMITE"
     assert b.evidencia["valor"] == 80000
-    assert b.evidencia["limite_vigente"] == 57208.33  # bens/serviços
-    # Obra usa o limite maior: 80k não dispara.
-    obra = [{"modalidade": "Dispensa", "valor": 80000, "objeto": "pavimentação da rua X"}]
-    assert dispensa_acima_limite(obra) is None
-    # Dispensa abaixo do limite: nada.
-    assert dispensa_acima_limite([{"modalidade": "Dispensa", "valor": 1000, "objeto": "x"}]) is None
+    assert b.evidencia["limite_vigente"] == 59906.02
+    assert b.evidencia["vigencia_desde"] == "2024-01-01"
+    # Obra usa o teto maior (obras 2024 = 119.812,02): 80k não dispara.
+    assert dispensa_acima_limite(
+        [{"modalidade": "Dispensa", "valor": 80000, "objeto": "pavimentação da rua X", "data": "2024-01-01"}]
+    ) is None
+    # Dispensa abaixo do teto: nada.
+    assert dispensa_acima_limite(
+        [{"modalidade": "Dispensa", "valor": 1000, "objeto": "x", "data": "2024-01-01"}]
+    ) is None
+
+
+def test_dispensa_teto_por_ano():
+    # R$ 62.400 em 2026 (teto 65.492,11) NÃO dispara...
+    novo = [{"modalidade": "Dispensa", "valor": 62400, "objeto": "manutenção", "data": "2026-05-21"}]
+    assert dispensa_acima_limite(novo) is None
+    # ...mas o MESMO valor em mar/2017 (Lei 8.666 original, teto R$ 8.000) dispara.
+    antigo = [{"modalidade": "Dispensa", "valor": 62400, "objeto": "manutenção", "data": "2017-03-01"}]
+    b = dispensa_acima_limite(antigo)
+    assert b and b.evidencia["limite_vigente"] == 8000.00
+    # Após o Decreto 9.412/2018 (vig. 19/07/2018), o teto de bens/serviços é R$ 17.600.
+    b18 = dispensa_acima_limite(
+        [{"modalidade": "Dispensa", "valor": 62400, "objeto": "manutenção", "data": "2019-05-01"}]
+    )
+    assert b18 and b18.evidencia["limite_vigente"] == 17600.00
+    # Sem data → usa o teto mais recente (conservador): 62.400 não dispara.
+    assert dispensa_acima_limite(
+        [{"modalidade": "Dispensa", "valor": 62400, "objeto": "manutenção"}]
+    ) is None
+
+
+def test_dispensa_exclui_inexigibilidade_e_emergencial():
+    # Inexigibilidade (art. 74) não tem teto de valor → nunca dispara esta flag.
+    assert dispensa_acima_limite(
+        [{"modalidade": "Contratacao Direta - Inexigibilidade de licitacao",
+          "valor": 999999, "objeto": "show artístico", "data": "2024-01-01"}]
+    ) is None
+    # Dispensa emergencial/calamidade: teto de valor não se aplica → fora.
+    assert dispensa_acima_limite(
+        [{"modalidade": "Dispensa", "valor": 999999,
+          "objeto": "contratação emergencial de leitos de UTI", "data": "2024-01-01"}]
+    ) is None
 
 
 def test_entidade_sem_fins_sem_licitacao():
